@@ -27,14 +27,37 @@ import filemanager
 from system import MogamiLog
 
 
-m_channel = Channel.MogamiChanneltoMeta()
+m_channel = channel.MogamiChanneltoMeta()
 daemons = []
 file_size_dict = {}
-channels = Channel.MogamiChannelRepository()
+channels = channel.MogamiChannelRepository()
 file_access_dict = {}
 file_access_lock = threading.Lock()
 
+
+class MogamiFileAccessHistory(object):
+    def __init__(self, ):
+        self.ap_dict = {}
+        self.ap_lock = threading.Lock()
+
+    def put_ap(self, ap, pid):
+        with self.ap_lock:
+            if pid not in self.ap_dict:
+                self.ap_dict[pid] = []
+            self.ap_dict[pid].append(ap)
+
+    def get_ap(self, pid):
+        with self.ap_lock:
+            if pid in self.ap_dict:
+                return self.ap_dict[pid]
+            else:
+                return None
+
+file_access_rep = MogamiFileAccessHistory()
+
 class MogamitoTellAccessPattern(Daemons.MogamiDaemons):
+    """Class for answer access pattern history.
+    """
     def __init__(self, pipepath):
         Daemons.MogamiDaemons.__init__(self)
         self.pipepath = pipepath
@@ -43,39 +66,22 @@ class MogamitoTellAccessPattern(Daemons.MogamiDaemons):
         self.channel = Channel.MogamiChanneltoTellAP(self.pipepath)
 
     def run(self, ):
-        """This thread should process data in file access queue
-        and answer questions about file access pattern from gxpd process.
+        """This thread should answer questions about file access pattern from gxpd process.
         """
         while True:
             self.answer_to_client()
 
     def answer_to_client(self, ):
-        c_channel = self.channel.accept_with_timeout(0.1)
+        c_channel = self.channel.accept_with_timeout(10.0)
         if c_channel == None:
             return None
         pid = c_channel.recv_msg()
-        if pid in file_access_dict:
-            c_channel.send_msg(file_access_dict[pid])
+        ap = file_access_rep.get_ap(pid)
+        if ap != None:
+            c_channel.send_msg(ap)
         else:
             c_channel.send_msg([])
         c_channel.finalize()
-        
-    def parse_file_access_pattern(self, ):
-        """don't use this function.
-        """
-        try:
-            ap = file_access_queue.get(timeout=0.1)
-            # ap = (cmd, pid, path, hostname, time, created, read, write)
-            if len(ap) != 8:
-                print "** didn't match the format of file access pattern **"
-                return None
-            pid = int(ap[1])
-            if pid not in self.file_access_dict:
-                self.file_access_dict[pid] = []
-            print ap
-            self.file_access_dict[pid].append(ap)
-        except Queue.Empty:
-            pass
 
 
 class MogamiFS(Fuse):
@@ -123,7 +129,7 @@ class MogamiFS(Fuse):
         if ans != 0:
             return -ans
         else:
-            st = FileManager.MogamiStat()
+            st = fileManager.MogamiStat()
             st.load(ret_st)
             if fsize >= 0:
                 st.chsize(fsize)
@@ -229,6 +235,11 @@ class MogamiFS(Fuse):
         return -ans
 
     def readlink(self, path):
+        """readlink handler.
+
+        @param path path to read link of
+        @return result path of readlink with success, errno with error
+        """
         MogamiLog.debug("** readlink ** path = %s" % (path))
         (ans, result) = m_channel.readlink_req(path)
         if ans != 0:
@@ -236,6 +247,12 @@ class MogamiFS(Fuse):
         return result
 
     def truncate(self, path, length):
+        """truncate handler.
+
+        @param path path of file to truncate
+        @param length expected file length after truncate
+        @return 0 with success, errno with error
+        """
         MogamiLog.debug('** truncate ** path = %s, length = %d' %
                         (path, length))
 
@@ -243,7 +260,7 @@ class MogamiFS(Fuse):
         if ans != 0:
             return -ans
 
-        c_channel = Channel.MogamiChanneltoData(dest)
+        c_channel = channel.MogamiChanneltoData(dest)
         ans = c_channel.truncate_req(filename, length)
         c_channel.finalize()
 
@@ -287,10 +304,10 @@ class MogamiFS(Fuse):
                 raise e
 
             if dest == 'self':
-                self.mogami_file = FileManager.MogamiLocalFile(
+                self.mogami_file = fileManager.MogamiLocalFile(
                     self.fsize, data_path, flag, *mode)
             else:
-                self.mogami_file = FileManager.MogamiRemoteFile(
+                self.mogami_file = fileManager.MogamiRemoteFile(
                     self.fsize, dest, data_path, flag, *mode)
                 ans = self.mogami_file.create_connections(channels)
                 if ans != 0:
@@ -312,10 +329,10 @@ class MogamiFS(Fuse):
                 f = open(os.path.join("/proc", str(pid), "cmdline"), 'r')
                 cmd_args = f.read().rsplit('\x00')[:-1]
             except Exception, e:
-                # with any error, pass this part of process
+                # with any error, pass this proccess
                 cmd_args = None
                 pid = -1
-            self.access_pattern = FileManager.MogamiAccessPattern(
+            self.access_pattern = fileManager.MogamiAccessPattern(
                 path, cmd_args, pid)
             end_t = time.time()
             self.took_time = end_t - start_t
@@ -323,31 +340,13 @@ class MogamiFS(Fuse):
         def read(self, length, offset):
             """read handler.
 
-            return strings read from file
             @param length request size of read
             @param offset offset of read request
+            @return data read from file (may return errno with error)
             """
             start_t = time.time()
             MogamiLog.debug("**read offset=%d, length=%d" % (offset, length))
 
-            """
-            if conf.prefetch == True:
-                if last_readbl != self.access_pattern.last_bl:
-                    #MogamiLog.debug("read: prenum %d \n" % (self.prenum))
-                    if conf.force_prenum == True:
-                        self.prenum = conf.prenum
-                    blnum_list = []
-                    prereq_list = self.access_pattern.return_need_block(
-                        (last_readbl + 1) * 1024 * 1024, self.prenum,
-                        self.blnum)
-                    for prereq in prereq_list:
-                        if prereq > self.blnum:
-                            break
-                        if self.bldata[prereq].state == 0:
-                            blnum_list.append(prereq)
-                    if len(blnum_list) != 0:
-                        self.request_prefetch(blnum_list)
-            self.calc_time += end_t - start_t"""
             ret_buf = self.mogami_file.read(length, offset)
             end_t = time.time()
             self.access_pattern.insert_data(self.access_pattern.read, offset,
@@ -357,6 +356,13 @@ class MogamiFS(Fuse):
             return ret_buf
 
         def write(self, buf, offset):
+            """write handler.
+
+            This function is NOT ensure to write to disk.
+            @param buf data to write
+            @param offset
+            @return 0 with success, errno with error
+            """
             start_t = time.time()
             if self.fsize < offset + len(buf):
                 self.fsize = offset + len(buf)
@@ -402,17 +408,11 @@ class MogamiFS(Fuse):
             end_t = time.time()
             self.took_time += end_t - start_t
             
+            # put file access history to repository
             if cmd_args != None:
-                # process access pattern history (may be inserted to queue)
-                #file_access_queue.put((cmd_args, pid, path, myname,
-                #                       self.took_time, self.created,
-                #                       read_data, write_data))
-                with file_access_lock:
-                    ap = (cmd_args, pid, path, myname, self.took_time,
-                          self.created, read_data, write_data)
-                    if pid not in file_access_dict:
-                        file_access_dict[pid] = []
-                    file_access_dict[pid].append(ap)
+                file_access_rep.put_ap((cmd_args, pid, path, myname,
+                                        self.took_time, self.created,
+                                        read_data, write_data))
             return 0
 
     def main(self, *a, **kw):

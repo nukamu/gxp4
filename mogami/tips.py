@@ -3,15 +3,14 @@
 
 from __future__ import with_statement
 
-import sys, os
-sys.path.append(os.pardir)
 import threading, time
 
-from conf import conf
+import conf
 
 
 class MogamiFileAccessPattern(object):
     """This is the class to manage the access pattern of a file.
+    now not be used..
     """
     MOD_SEQ = 0
     MOD_STRIDE = 1

@@ -17,21 +17,17 @@ import cStringIO
 
 import atexit    # for leave from meta data sever list
 
-sys.path.append(os.pardir)
+import channel
+import daemons
+import conf
+from system import MogamiLog
 
-from libs import Channel
-from libs import System
-from libs import Daemons
-from libs.System import MogamiLog
-from conf import conf
-
-
-class MogamiDataHandler(Daemons.MogamiDaemons):
+class MogamiDataHandler(daemons.MogamiDaemons):
     """This is the class for thread created for each client.
     This handler is run as multithread.
     """
     def __init__(self, c_channel, rootpath):
-        Daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiDaemons.__init__(self)
         self.c_channel = c_channel
         self.rootpath = rootpath
 
@@ -43,45 +39,45 @@ class MogamiDataHandler(Daemons.MogamiDaemons):
                 self.c_channel.finalize()
                 break
 
-            if req[0] == Channel.REQ_OPEN:
+            if req[0] == channel.REQ_OPEN:
                 MogamiLog.debug('** open **')
                 self.open(req[1], req[2], *req[3])
 
-            elif req[0] == Channel.REQ_CREATE:
+            elif req[0] == channel.REQ_CREATE:
                 MogamiLog.debug('** create **')
                 self.create(req[1], req[2], req[3])
 
-            elif req[0] == Channel.REQ_READ:
+            elif req[0] == channel.REQ_READ:
                 MogamiLog.debug('** read **')
                 self.read(req[1], req[2])
 
-            elif req[0] == Channel.REQ_PREFETCH:
+            elif req[0] == channel.REQ_PREFETCH:
                 MogamiLog.debug('** prefetch')
                 self.prefetch(req[1], req[2])
 
-            elif req[0] == Channel.REQ_FLUSH:
+            elif req[0] == channel.REQ_FLUSH:
                 MogamiLog.debug('** flush')
                 self.flush(req[1], req[2], req[3])
 
-            elif req[0] == Channel.REQ_RELEASE:
+            elif req[0] == channel.REQ_RELEASE:
                 MogamiLog.debug('** release **')
                 self.release(req[1])
                 self.c_channel.finalize()
                 break
 
-            elif req[0] == Channel.REQ_TRUNCATE:
+            elif req[0] == channel.REQ_TRUNCATE:
                 MogamiLog.debug('** truncate')
                 self.truncate(req[1], req[2])
 
-            elif req[0] == Channel.REQ_FTRUNCATE:
+            elif req[0] == channel.REQ_FTRUNCATE:
                 MogamiLog.debug('** ftruncate')
 
-            elif req[0] == Channel.REQ_CLOSE:
+            elif req[0] == channel.REQ_CLOSE:
                 MogamiLog.debug("** quit **")
                 self.c_channel.finalize()
                 break
 
-            elif req[0] == Channel.REQ_FILEDEL:
+            elif req[0] == channel.REQ_FILEDEL:
                 MogamiLog.debug("** filedel **")
                 self.filedel(req[1])
 
@@ -237,7 +233,7 @@ class MogamiData(object):
         MogamiLog.debug("rootpath = " + self.rootpath)
 
         # At first, connect to metadata server and send request to attend.
-        self.m_channel = Channel.MogamiChanneltoMeta()
+        self.m_channel = channel.MogamiChanneltoMeta()
         self.m_channel.connect(self.metaaddr)
         MogamiLog.debug("Success in creating connection to metadata server")
         self.m_channel.dataadd_req(self.rootpath)
@@ -255,7 +251,7 @@ class MogamiData(object):
 
         # create a thread to collect dead daemon threads
         daemons = []
-        collector_thread = Daemons.MogamiThreadCollector(daemons)
+        collector_thread = daemons.MogamiThreadCollector(daemons)
         collector_thread.start()
         threads_count = 0
 
@@ -265,7 +261,7 @@ class MogamiData(object):
             MogamiLog.debug("accept connnect from " + str(address[0]))
 
 
-            client_channel = Channel.MogamiChannelforData()
+            client_channel = channel.MogamiChannelforData()
             client_channel.set_socket(csock)
 
             datad = MogamiDataHandler(client_channel, self.rootpath)
@@ -278,7 +274,7 @@ class MogamiData(object):
 
     def finalize(self, ):
         if self.m_channel == None:
-            self.m_channel = Channel.MogamiChanneltoMeta()
+            self.m_channel = channel.MogamiChanneltoMeta()
             self.m_channel.connect(self.metaaddr, conf.metaport)
         self.m_channel.datadel_req()
         self.m_channel.finalize()

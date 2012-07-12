@@ -13,9 +13,8 @@ import string
 import cStringIO
 import cPickle
 
-from System import MogamiLog
-sys.path.append(os.pardir)
-from conf import conf
+from system import MogamiLog
+import conf
 
 # requests related to metadata
 REQ_GETATTR = 0

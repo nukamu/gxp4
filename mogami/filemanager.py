@@ -5,19 +5,20 @@ from __future__ import with_statement
 
 import os
 import sys
-sys.path.append(os.pardir)
 import threading
 import cStringIO
 import time
 import os.path
 import Queue
 
-from conf import conf
-from libs.System import MogamiLog
 from fuse import Fuse
-from libs import Channel
 import fuse
 fuse.fuse_python_api = (0, 2)
+
+
+import conf
+import channel
+from system import MogamiLog
 
 
 class MogamiAccessPattern(object):
@@ -86,7 +87,6 @@ class MogamiStat(fuse.Stat):
     def __init__(self, ):
         for attr in self.mogami_attrs:
             try:
-                #setattr(self, "_" + attr, 0)
                 setattr(self, attr, 0)
             except AttributeError, e:
                 print e
@@ -99,17 +99,9 @@ class MogamiStat(fuse.Stat):
     def load(self, st):
         for attr in self.attrs:
             try:
-                #setattr(self, attr, getattr(st, "_" + attr))
                 setattr(self, attr, getattr(st, attr))
             except AttributeError, e:
                 print e
-
-    #def __getattr__(self, attrname):
-    #    val = getattr(self, "_" + attrname)
-    #    return val
-
-    #def __setattr__(self, attrname, newvalue):
-    #    setattr(self, "_" + attrname, newvalue)
 
     # TODO: Deprecated
     def chsize(self, size):
@@ -130,11 +122,13 @@ class MogamiBlock(object):
         # block data
         self.buf = ""
 
+
 class MogamiFile(object):
     """Class for a object of a file
     """
     def __init__(self, fsize):
         self.fsize = fsize
+
 
 class MogamiRamFile(object):
     """Class for managing a content of file on memory.
@@ -150,9 +144,8 @@ class MogamiRamFile(object):
     def read(self, length):
         self.buf.read(length)
 
-    def write(self, offset, buf):
-        
-        pass
+    def write(self, buf):
+        self.buf.write(buf)
 
 
 class MogamiRemoteFile(MogamiFile):
@@ -192,15 +185,7 @@ class MogamiRemoteFile(MogamiFile):
         In this function, send request for open to data server.
         (and calculate RTT)
         """
-        channels = channel_repository.get_channel(self.dest)
-        self.d_channel = Channel.MogamiChanneltoData(self.dest)
-        # create a connection for prefetching
-        #self.p_channel = Channel.MogamiChanneltoData(self.dest)
-        #channel_repository.set_channel(self.dest, self.d_channel, self.p_channel)
-        #else:
-            # set channels
-        #    self.d_channel = channels[0]
-        #    self.p_channel = channels[1]
+        self.d_channel = channel.MogamiChanneltoData(self.dest)
 
         # send a request to data server for open
         start_t = time.time()
@@ -219,8 +204,6 @@ class MogamiRemoteFile(MogamiFile):
     def finalize(self, ):
         self.r_data = None
         self.d_channel.finalize()
-        #self.p_channel.close_req()
-        #self.p_channel.finalize()
 
     def read(self, length, offset):
         requestl = self.cal_bl(offset, length)
@@ -243,8 +226,6 @@ class MogamiRemoteFile(MogamiFile):
                 buf = self.r_data[reqbl].buf
             else:
                 self.request_block(reqbl)
-                #while self.r_data[reqbl].state == 1:
-                #    time.sleep(0.01)
                 with self.r_buflock:
                     buf = self.r_data[reqbl].buf
 

@@ -3,8 +3,8 @@
 
 import sqlite3
 import os, os.path
-import Tips
 import errno
+
 
 class MogamiMetaDB(object):
     """Class for Mogami's DB to store metadata

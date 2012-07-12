@@ -21,8 +21,6 @@ class MogamiNodeInfoMeta(MogamiNodeInfo):
         self.db_path = db_path
         
 
-
-
 class Singleton(type):
     """Singleton Class implementation from
     http://code.activestate.com/recipes/412551/

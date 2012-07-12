@@ -5,13 +5,13 @@ from __future__ import with_statement
 
 import os
 import sys
-sys.path.append(os.pardir)
-
-from conf import conf
-from System import MogamiLog
 import threading
 import select
 import time
+
+import conf
+from system import MogamiLog
+
 
 class MogamiDaemons(threading.Thread):
     def __init__(self, ):
