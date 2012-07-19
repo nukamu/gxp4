@@ -140,6 +140,18 @@ default_src_files = [ "$GXP_DIR",
                       "$GXP_DIR/gxpmake/ex_word_count_mapper",
                       "$GXP_DIR/gxpmake/ex_xml_reader",
                       "$GXP_DIR/gxpmake/read_helper.py",
+                      "$GXP_DIR/mogami",
+                      "$GXP_DIR/mogami/meta.py",
+                      "$GXP_DIR/mogami/fs.py",
+                      "$GXP_DIR/mogami/data.py",
+                      "$GXP_DIR/mogami/conf.py",
+                      "$GXP_DIR/mogami/channel.py",
+                      "$GXP_DIR/mogami/daemons.py",
+                      "$GXP_DIR/mogami/dbmng.py",
+                      "$GXP_DIR/mogami/filemanager.py",
+                      "$GXP_DIR/mogami/system.py",
+                      "$GXP_DIR/mogami/tips.py",
+                      "$GXP_DIR/mogami/exec_with_ap"
                       ]
 
 #

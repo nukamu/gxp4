@@ -5266,6 +5266,27 @@ this command line.
 """
         return u
 
+    #
+    # mogami (distributed file system)
+    #
+    def do_mogami_cmd(self, args):
+        if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN
+        gxp_dir = os.environ["GXP_DIR"]
+
+        targets = self.session.successful_targets
+        meta_target = targets.keys()[0]
+        Es("gxpc: %s was selected as metadata server.\n" % (meta_target))
+
+    def usage_mogami_cmd(self, args):
+        u = r"""Usage:
+  gxpc mogami [--meta_addr meta_hostname]
+"""
+        return u
+
+    def select_metadata_server(self, ):
+        print "nya"
+
+
     def js_like_cmd(self, cname, args):
         if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN
         gxp_dir = os.environ["GXP_DIR"]

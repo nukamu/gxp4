@@ -20,12 +20,12 @@ import random
 sys.path.append(os.pardir)
 
 # import mogami's original modules
-from libs import Channel
-from libs import DBMng
-from libs import System
-from libs import Daemons
-from conf import conf
-from libs.System import MogamiLog
+import channel
+import dbmng
+import system
+import daemons
+import conf
+from system import MogamiLog
 
 
 def meta_file_info(path):
@@ -114,12 +114,12 @@ class MogamiSystemInfo(object):
         self.delfile_q.put((dest, data_path))
 
 
-class MogamiMetaHandler(Daemons.MogamiDaemons):
+class MogamiMetaHandler(daemons.MogamiDaemons):
     """This is the class for thread created for each client.
     This handler is run as multithread.
     """
     def __init__(self, client_channel, sysinfo):
-        Daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiDaemons.__init__(self)
         self.sysinfo = sysinfo
         self.c_channel = client_channel
         self.rootpath = sysinfo.meta_rootpath
@@ -577,13 +577,13 @@ class MogamiMetaHandler(Daemons.MogamiDaemons):
         self.c_channel.fileask_answer(dest_dict)
 
 
-class MogamiDaemononMeta(Daemons.MogamiDaemons):
+class MogamiDaemononMeta(daemons.MogamiDaemons):
     """Send the data servers the request to delete files.
 
     @param files file list to delete
     """
     def __init__(self, sysinfo):
-        Daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiDaemons.__init__(self)
         self.delfile_q = sysinfo.delfile_q
         
     def run(self, ):
