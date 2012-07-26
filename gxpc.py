@@ -5273,9 +5273,25 @@ this command line.
         if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN
         gxp_dir = os.environ["GXP_DIR"]
 
-        targets = self.session.successful_targets
-        meta_target = targets.keys()[0]
+        meta_target = self.session.successful_targets.keys()[0]
         Es("gxpc: %s was selected as metadata server.\n" % (meta_target))
+
+        # default None
+        target_prefix = self.opts.target_prefix
+        if target_prefix is None:
+            pass
+        
+        # launch program for metadata server.
+        meta_args = [os.path.join(target_prefix, 'meta.py'), meta_target]
+        self.e_like_cmd("e", meta_args, None, 1, 0)
+
+        # launch program for data servers.
+        data_args = [os.path.join(target_prefix, 'data.py'), ]
+        self.e_like_cmd("e", data_args, None, 1, 0)
+
+        # launch program for clients. (mogamifs is mounted here)
+        fs_args = [os.path.join(target_prefix, 'fs.py')]
+        self.e_like_cmd("e", fs_args, None, 1, 0)
 
     def usage_mogami_cmd(self, args):
         u = r"""Usage:
@@ -5284,7 +5300,7 @@ this command line.
         return u
 
     def select_metadata_server(self, ):
-        print "nya"
+        pass
 
 
     def js_like_cmd(self, cname, args):

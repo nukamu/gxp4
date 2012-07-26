@@ -40,7 +40,7 @@ class MogamiFileAccessHistory(object):
         self.ap_dict = {}
         self.ap_lock = threading.Lock()
 
-    def put_ap(self, ap, pid):
+    def put_ap(self, ap, pid, parent_list=[]):
         with self.ap_lock:
             if pid not in self.ap_dict:
                 self.ap_dict[pid] = []
@@ -288,7 +288,8 @@ class MogamiFS(Fuse):
             """
             MogamiLog.debug("** open ** path = %s, flag = %s, mode = %s" %
                             (path, str(flag), str(mode)))
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
 
             # parse argurments
             self.path = path
@@ -319,23 +320,24 @@ class MogamiFS(Fuse):
             # register file size to file size dictionary
             file_size_dict[path] = self.fsize
 
-            """Get Id list to know pid.
-            list = {gid: pid: uid}
-            And then get the command from pid.
-            """
-            try:
-                id_list = self.GetContext()
-                pid = id_list['pid']
-                f = open(os.path.join("/proc", str(pid), "cmdline"), 'r')
-                cmd_args = f.read().rsplit('\x00')[:-1]
-            except Exception, e:
-                # with any error, pass this proccess
-                cmd_args = None
-                pid = -1
-            self.access_pattern = fileManager.MogamiAccessPattern(
-                path, cmd_args, pid)
-            end_t = time.time()
-            self.took_time = end_t - start_t
+            if conf.ap is True:
+                """Get Id list to know pid.
+                list = {gid: pid: uid}
+                And then get the command from pid.
+                """
+                try:
+                    id_list = self.GetContext()
+                    pid = id_list['pid']
+                    f = open(os.path.join("/proc", str(pid), "cmdline"), 'r')
+                    cmd_args = f.read().rsplit('\x00')[:-1]
+                except Exception, e:
+                    # with any error, pass this proccess
+                    cmd_args = None
+                    pid = -1
+                self.access_pattern = fileManager.MogamiAccessPattern(
+                    path, cmd_args, pid)
+                end_t = time.time()
+                self.took_time = end_t - start_t
 
         def read(self, length, offset):
             """read handler.
@@ -344,15 +346,19 @@ class MogamiFS(Fuse):
             @param offset offset of read request
             @return data read from file (may return errno with error)
             """
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
+
             MogamiLog.debug("**read offset=%d, length=%d" % (offset, length))
 
             ret_buf = self.mogami_file.read(length, offset)
-            end_t = time.time()
-            self.access_pattern.insert_data(self.access_pattern.read, offset,
-                                            len(ret_buf))
 
-            self.took_time += end_t - start_t
+            if conf.ap is True:
+                end_t = time.time()
+                self.access_pattern.insert_data(self.access_pattern.read, offset,
+                                                len(ret_buf))
+                
+                self.took_time += end_t - start_t
             return ret_buf
 
         def write(self, buf, offset):
@@ -363,34 +369,49 @@ class MogamiFS(Fuse):
             @param offset
             @return 0 with success, errno with error
             """
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
+
             if self.fsize < offset + len(buf):
                 self.fsize = offset + len(buf)
                 file_size_dict[self.path] = self.fsize
             ret_value = self.mogami_file.write(buf, offset)
-            if ret_value > 0:
+
+            if conf.ap is True and ret_value > 0:
                 self.access_pattern.insert_data(self.access_pattern.write,
                                                 offset, ret_value)
-            end_t = time.time()
-            self.took_time += end_t - start_t
+            if conf.ap is True:
+                end_t = time.time()
+                self.took_time += end_t - start_t
             return ret_value
 
         def flush(self, ):
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
+
+            # actual flush operation
             ans = self.mogami_file.flush()
-            end_t = time.time()
-            self.took_time += end_t - start_t
+
+            if conf.ap is True:
+                end_t = time.time()
+                self.took_time += end_t - start_t
             return ans
 
         def fsync(self, isfsyncfile):
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
+            
+            # actual fsync operation
             ans = self.mogami_file.fsync(isfsyncfile)
-            end_t = time.time()
-            self.took_time += end_t - start_t
+
+            if conf.ap is True:
+                end_t = time.time()
+                self.took_time += end_t - start_t
             return ans
 
         def release(self, flags):
-            start_t = time.time()
+            if conf.ap is True:
+                start_t = time.time()
             MogamiLog.debug("** release **")
 
             fsize = self.mogami_file.release(flags)
@@ -399,20 +420,21 @@ class MogamiFS(Fuse):
             if self.path in file_size_dict:
                 del file_size_dict[self.path]
 
-            # prepare data to tell access pattern
-            myname = m_channel.getmyname()
-            (read_data, write_data) = self.access_pattern.mk_form_data()
-            pid = self.access_pattern.pid
-            cmd_args = self.access_pattern.cmd_args
-            path = self.access_pattern.path
-            end_t = time.time()
-            self.took_time += end_t - start_t
-            
-            # put file access history to repository
-            if cmd_args != None:
-                file_access_rep.put_ap((cmd_args, pid, path, myname,
-                                        self.took_time, self.created,
-                                        read_data, write_data))
+            if conf.ap is True:
+                # prepare data to tell access pattern
+                myname = m_channel.getmyname()
+                (read_data, write_data) = self.access_pattern.mk_form_data()
+                pid = self.access_pattern.pid
+                cmd_args = self.access_pattern.cmd_args
+                path = self.access_pattern.path
+                end_t = time.time()
+                self.took_time += end_t - start_t
+                
+                # put file access history to repository
+                if cmd_args != None:
+                    file_access_rep.put_ap((cmd_args, pid, path, myname,
+                                            self.took_time, self.created,
+                                            read_data, write_data))
             return 0
 
     def main(self, *a, **kw):

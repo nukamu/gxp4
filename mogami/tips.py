@@ -4,7 +4,6 @@
 from __future__ import with_statement
 
 import threading, time
-
 import conf
 
 

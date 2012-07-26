@@ -28,6 +28,12 @@ class MogamiAccessPattern(object):
     write = 1
 
     def __init__(self, path, cmds, pid):
+        """initializer.
+
+        @param path file path
+        @param cmds cmd args of process which open the file
+        @param pid pid of process which open the file
+        """
         self.path = path
         self.cmd_args = cmds
         self.pid = pid
@@ -113,15 +119,28 @@ class MogamiBlock(object):
     """
 
     def __init__(self, ):
-        self.state = 0
-        """Data are..
+        """state -> Data are..
         0: not exist
         1: requesting
         2: exist
         """
+        self.state = 0
+
         # block data
         self.buf = ""
 
+class MogamiFileRepository(object):
+    """Class for a repository of file data.
+    
+    Client has an instance of this class and manage file data using it.
+    ** important **  this class is not used now!
+    """
+    def __init__(self, ):
+        pass
+
+
+    def add_file(self, ):
+        pass
 
 class MogamiFile(object):
     """Class for a object of a file
@@ -149,17 +168,24 @@ class MogamiRamFile(object):
 
 
 class MogamiRemoteFile(MogamiFile):
-    """Class for a file located at remote node
+    """Class for a file located at remote node.
     """
     def __init__(self, fsize, dest, data_path, flag, *mode):
+        """initializer. This method is called by open().
+
+        @param fsize file size
+        @param dest ip of node which have data contents
+        @param data_path path of file contents at data server
+        @param flag file open flag
+        @param mode file open mode
+        """
+        # initialize some information
         MogamiFile.__init__(self, fsize)
         self.remote = True
         self.dest = dest
         self.data_path = data_path
         self.flag = flag
         self.mode = mode
-
-        self.prenum = 1
 
         # calculation of the number of blocks
         self.blnum = self.fsize / conf.blsize
@@ -178,8 +204,12 @@ class MogamiRemoteFile(MogamiFile):
         self.w_len = 0
         # for buffer of dirty data
         self.dirty_dict = {}
+
+        # information for prefetching
+        self.prenum = 1
+
         
-    def create_connections(self, channel_repository):
+    def create_connections(self, channel_repository=None):
         """Create connections to data server which has file contents.
 
         In this function, send request for open to data server.
@@ -200,6 +230,12 @@ class MogamiRemoteFile(MogamiFile):
         self.rtt = end_t - start_t - open_t
         # must be 0
         return ans
+
+
+    def prepare_for_prefetch(self, ):
+        """
+        """
+        pass
 
     def finalize(self, ):
         self.r_data = None
