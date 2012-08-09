@@ -4,17 +4,31 @@ import socket,cPickle,os.path,cStringIO
 
 MOGAMI_MOUNT = "/data/local2/mikity/mnt"
 
-def file_from_feature(cmd, feature_dict, cwd):
+def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
     """
     @param cmd list of arguments
     @param feature like {(-1, -1, "", "-f", 5): load, (): load}
-    >>> file_from_feature(['mProjectPP', '-f', 'file2', 'file3', 'file4', 'file5', 'file6'], {(-1, -1, '', '-f', 5): 1000}, "/data/local2/mikity/mnt/montage/solvers/gxp_make")
-    {'/montage/solvers/gxp_make/file2': 1000, '/montage/solvers/gxp_make/file5': 1000}
-    >>> file_from_feature(['mProjectPP', '-f', 'file2', 'file3', 'file4', 'file5', 'file6'], {(2, 3, '_area', '-f', 5): 1000}, "/data/local2/mikity/mnt/montage/solvers/gxp_make")
-    {'/montage/solvers/gxp_make/fil_areae2': 1000, '/montage/solvers/gxp_make/fi_areale5': 1000}
     """
-    features = feature_dict.keys()
+    job_id_list = []
+    app = cmd[0]
+    for arg in cmd:
+        job_id_list.extend(arg_job_dict[(app, arg)])
+    job_id_set = list(set(job_id_list))
 
+    max_job_list = []
+    max_num = 0
+    for job_id in job_id_set:
+        num = job_id_list.count(job_id)
+        if max_num < num:
+            max_num = num
+            max_job_list = job_id
+        elif max_num == num:
+            max_job_list.append(job_id)
+
+    # set features to use from now
+    features = []
+    for job_id in max_job_list:
+        features.append(feature_dict[job_id])
     ret_file_dict = {}
 
     for feature in features:
@@ -191,9 +205,11 @@ class MogamiJobScheduler():
 
         try:
             # insert command data (if possible)
-            f = open("/tmp/miki/feature_data_montage.dat", 'r')
+            f = open("/tmp/miki/feature_data.dat", 'r')
             buf = f.read()
-            self.feature_dict = cPickle.loads(buf)
+            l = buf.split("\n")
+            self.ap_dict = cPickle.loads(l[0])
+            self.arg_job_dict = cPickle.loads(l[-1])
             f.close()
         except Exception, e:
             self.active = False
@@ -205,14 +221,11 @@ class MogamiJobScheduler():
             self.active = False
 
     def choose_proper_node(self, runs, men):
-        if len(men) < 2:
-            return [runs[0], men[0]]
-
         match_list = []   # return list
+
+        # prepare for process
         (cmds, runs_dict) = parse_runs(runs)
         (candidates, men_dict) = parse_men(men)
-
-        # parse resources
         men_resource_dict = {}
         for man in men:
             men_resource_dict[man] = man.capacity_left['cpu']
@@ -221,7 +234,8 @@ class MogamiJobScheduler():
         files_to_ask = []
         for cmd in cmds:
             expected_files_dict = file_from_feature(
-                cmd, self.feature_dict[cmd[0]][0][0], runs_dict[cmd].work.dirs[0])
+                cmd, self.ap_dict,self.arg_job_dict,
+                runs_dict[cmd].work.dirs[0])
             files_to_ask.extend(expected_files_dict.keys())
         files_to_ask = list(set(files_to_ask))  # remove duplicative elements
         file_location_dict = self.m_channel.req_fileask(files_to_ask)

@@ -10,7 +10,7 @@ import gxpc,gxpm,ioman,opt
 
 import cPickle,cStringIO
 
-# miki-comments: added
+# inserted by miki
 import mogami_scheduler
 
 dbg=0
@@ -2517,8 +2517,8 @@ class html_generator:
         os.rename(html_t, html)
 
 class job_scheduler(gxpc.cmd_interpreter):
-    # miki-comment: add 3 lines
     def __init__(self, ):
+        # miki-comment: add 3 lines
         gxpc.cmd_interpreter.__init__(self)
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler()
         if self.mogami_scheduler.active != True:
@@ -3030,7 +3030,7 @@ class job_scheduler(gxpc.cmd_interpreter):
         return n_received
 
     def make_matches(self):
-        # miki-comment: changed codes in this function
+        # make matches of jobs and men
         if self.logfp:
             self.LOG("make_matches: %d runs todo %d men free\n" 
                      % (len(self.runs_todo), len(self.men_free)))
@@ -3083,10 +3083,10 @@ class job_scheduler(gxpc.cmd_interpreter):
                 self.matches[man].append(run)
                 self.n_pending_matches = self.n_pending_matches + 1
                 self.runs_todo.pop(run_idx)
-            self.men_free.extend(new_men_free)
-            if self.logfp:
-                self.LOG("%s : %d matches found\n" 
-                         % (self.prog, matches_found))
+        self.men_free.extend(new_men_free)
+        if self.logfp:
+            self.LOG("%s : %d matches found\n" 
+                     % (self.prog, matches_found))
 
     def mk_target_tree_rec(self, ptree, gupids):
         """

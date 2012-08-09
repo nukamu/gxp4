@@ -82,6 +82,27 @@ class MogamiAccessPattern(object):
 
         return (read_data, write_data)
 
+    def get_parents(self, ):
+        """get pids of parent processes
+        """
+        ret_list = []  # pids list (order shows relation)
+        
+        child_pid = self.pid
+        count = 0
+
+        while True:
+            f = open("/proc/%d/stat", child_pid)
+            buf = f.read()
+            f.close()
+            try:
+                ppid = buf.split(' ')[3]
+                if ppid == 1:
+                    break
+                ret_list.append(ppid)
+            except IndexError, e:
+                break
+
+        return ret_list
 
 class MogamiStat(fuse.Stat):
     attrs = ("st_mode", "st_ino", "st_dev", "st_nlink",

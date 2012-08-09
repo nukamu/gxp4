@@ -427,6 +427,10 @@ class MogamiFS(Fuse):
                 pid = self.access_pattern.pid
                 cmd_args = self.access_pattern.cmd_args
                 path = self.access_pattern.path
+
+                # get pids of parents
+                parents_list = self.access_pattern.get_parents()
+
                 end_t = time.time()
                 self.took_time += end_t - start_t
                 
@@ -434,8 +438,10 @@ class MogamiFS(Fuse):
                 if cmd_args != None:
                     file_access_rep.put_ap((cmd_args, pid, path, myname,
                                             self.took_time, self.created,
-                                            read_data, write_data))
+                                            read_data, write_data),
+                                           pid, parents_list)
             return 0
+
 
     def main(self, *a, **kw):
         """This is the main method of MogamiFS.

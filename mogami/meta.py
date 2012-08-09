@@ -21,7 +21,7 @@ sys.path.append(os.pardir)
 
 # import mogami's original modules
 import channel
-import dbmng
+import metadata
 import system
 import daemons
 import conf
@@ -600,6 +600,7 @@ class MogamiDaemononMeta(daemons.MogamiDaemons):
         ans = c_channel.delfile_req(files)
         c_channel.close_req()
         c_channel.finalize()
+
 
 class MogamiMeta(object):
     """This is the class of mogami's metadata server
