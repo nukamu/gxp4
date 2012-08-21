@@ -4,6 +4,7 @@ CREATE TABLE workflow_env (
 );
 
 CREATE TABLE ap_log (
+  job_id INT,
   cmd TEXT,
   pid INT,
   file_path TEXT,

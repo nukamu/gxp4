@@ -7,8 +7,6 @@ import os.path
 import sqlite3
 import cPickle
 
-# define parameters
-exe_cwd = "/home/mikity/svn/workflows/apps/CaseFrameConst/solvers/gxp_make"
 
 class MogamiWorkflowIOAnalyzer(object):
     def __init__(self, db_path):
@@ -17,6 +15,7 @@ class MogamiWorkflowIOAnalyzer(object):
         self.db_cur = self.db_conn.cursor()
 
         self.command_dict = {}
+        self.exe_cwd = None
 
     def parse_data_from_db(self, ):
         # select data
@@ -27,14 +26,23 @@ class MogamiWorkflowIOAnalyzer(object):
         count = 0
         ret_list = []
         for data in self.db_cur:
-            cmd = eval(data[0])
-            pid = data[1]
-            path = data[2]
-            created = data[3]
-            read_log = eval(data[4])
-            write_log = eval(data[5])
-            ret_list.append((cmd, pid, path, created,
-                               read_log, write_log))
+            job_id = int(data[0])
+            cmd = eval(data[1])
+            pid = int(data[2])
+            path = data[3]
+            created = int(data[4])
+            read_log = eval(data[5])
+            write_log = eval(data[6])
+            ret_list.append((job_id, cmd, pid, path, created,
+                             read_log, write_log))
+
+        # select data
+        self.db_cur.execute("""
+        SELECT cwd FROM workflow_env;
+        """)
+        self.exe_cwd = self.db_cur.fetchone()[0]
+        print "cwd = %s" % (self.exe_cwd)
+
         # close the connection to db
         self.db_conn.close()
         self.db_cur = None
@@ -54,7 +62,7 @@ class MogamiWorkflowIOAnalyzer(object):
         aplog_list = self.parse_data_from_db()
                 
         for ap in aplog_list:
-            job_id ap[0]
+            job_id = ap[0]
             cmd = ap[1]
             pid = ap[2]
             path = ap[3]
@@ -73,71 +81,58 @@ class MogamiWorkflowIOAnalyzer(object):
                 # create list for aplog
                 self.ap_dict[job_id] = []
             
-            self.ap_dict[job_id].append(cmd_file_feature(cmd, path)[0])
+            (read_feature, write_feature,
+             read_size, write_size) = self.cmd_file_feature(
+                cmd, path, read_log, write_log)
+            if read_feature is not None:
+                self.ap_dict[job_id].append((read_feature, read_size))
 
+    def cmd_file_feature(self, cmd, path, read_log, write_log):
+        assert self.exe_cwd != None
 
-    def cmd_file_feature(self, cmd, path):
         counter = 0
-        former_arg = None
+        former_arg = ""
         
         read_feature = None
-        read_size = 0
+        read_size = self.size_from_iolog(read_log)
         write_feature = None
-        write_size = 0
+        write_size = self.size_from_iolog(write_log)
         
         for arg in cmd:
-            cmd_file = os.path.normpath(os.path.join(exe_cwd, arg))
+            cmd_file = os.path.normpath(os.path.join(self.exe_cwd, arg))
             likely = self.my_str_find(cmd_file, path)
-            
+
             if cmd_file == path:
                 option = ""
-                if former_arg[0] == '-':
+                if former_arg[:1] == '-':
                     option = former_arg
-                if len(read_log) > 0:
+                if read_size is not  0:
                     read_feature = (-1, -1, '', option, counter)
-                    read_size = self.size_from_iolog(read_log)
-                if len(write_log) > 0:
+                if write_size is not 0:
                     write_feature = (-1, -1, '', option, counter)
-                    write_size = self.size_from_iolog(write_log)
                 break
             elif likely != None:
                 option = ""
-                if former_arg[0] == '-':
+                if former_arg[:1] == '-':
                     option = former_arg
-                if len(read_log) > 0:
+                if read_size is not 0:
                     read_feature = (likely[0], likely[1], likely[2],
                                     option, counter)
-                    read_size = self.size_from_iolog(read_log)
-                if len(write_log) > 0:
+                if write_size is not 0:
                     write_feature = (likely[0], likely[1], likely[2],
                                      option, counter)
-                    write_size = self.size_from_iolog(write_log)
 
             counter += 1
             former_arg = arg
 
-        rel_path = path.replace(exe_cwd, '')
+        rel_path = path.replace(self.exe_cwd, '')
         if read_feature == None:
-            if len(read_log) > 0:
+            if read_size is not 0:
                 read_feature = (-1, -1, "", rel_path, -1)
-                read_size = self.size_from_iolog(read_log)
         if write_feature == None:
-            if len(write_log) > 0:
+            if write_size is not 0:
                 write_feature = (-1, -1, "", rel_path, -1)
-                write_size = self.size_from_iolog(write_log)
-
-        if read_feature != None:
-            if read_feature in read_features:
-                read_features[read_feature] += read_size
-            else:
-                read_features[read_feature] = read_size
-        if write_feature != None:
-            if write_feature in write_features:
-                write_features[write_feature] += write_size
-            else:
-                write_features[write_feature] = write_size
-
-        return (read_features, write_features)
+        return (read_feature, write_feature, read_size, write_size)
 
     def size_from_iolog(self, log_list):
         """
@@ -185,7 +180,6 @@ class MogamiWorkflowIOAnalyzer(object):
 
         #print str1_base, str2_base
         return (from_left_offset, from_right_offset, plus_str)
-
 
     def output(self, output_file):
         """Output result to the specified file.

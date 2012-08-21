@@ -2,12 +2,13 @@
 
 import socket,cPickle,os.path,cStringIO
 
+# TODO: this should be retrieved from system automatically 
 MOGAMI_MOUNT = "/data/local2/mikity/mnt"
 
 def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
     """
     @param cmd list of arguments
-    @param feature like {(-1, -1, "", "-f", 5): load, (): load}
+    @param feature_dict {job_id: [(feature, size)*]}
     """
     job_id_list = []
     app = cmd[0]
@@ -15,94 +16,95 @@ def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
         job_id_list.extend(arg_job_dict[(app, arg)])
     job_id_set = list(set(job_id_list))
 
+    # select max jobs' job_id
     max_job_list = []
     max_num = 0
     for job_id in job_id_set:
         num = job_id_list.count(job_id)
         if max_num < num:
             max_num = num
-            max_job_list = job_id
+            max_job_list = [job_id]
         elif max_num == num:
             max_job_list.append(job_id)
 
     # set features to use from now
-    features = []
+    read_features = []
     for job_id in max_job_list:
-        features.append(feature_dict[job_id])
+        read_features.append(feature_dict[job_id])
+
     ret_file_dict = {}
-
-    for feature in features:
-        size = feature_dict[feature]
-        start = feature[0]
-        end = feature[1]
-        plus_str = feature[2]
-        option = feature[3]
-        count = feature[4]
+    for features in read_features:
+        for (feature, size) in features:
+            start = feature[0]
+            end = feature[1]
+            plus_str = feature[2]
+            option = feature[3]
+            count = feature[4]
         
-        if plus_str == "":
-            if count == -1:
-                # itself
-                filename = os.path.join(cwd, "." + option)
-                filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
-                if filename not in ret_file_dict:
-                    ret_file_dict[filename] = size
-                else:
-                    ret_file_dict[filename] += size
+            if plus_str == "":
+                if count == -1:
+                    # itself
+                    filename = os.path.join(cwd, "." + option)
+                    filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
+                    if filename not in ret_file_dict:
+                        ret_file_dict[filename] = size
+                    else:
+                        ret_file_dict[filename] += size
                 
-            counter = 0
-            for arg in cmd:
-                if counter == count:
-                    filename = os.path.join(cwd, arg)
-                    filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
-                    if arg not in ret_file_dict:
-                        ret_file_dict[filename] = size
-                    else:
-                        ret_file_dict[filename] += size
-                if option == arg:
-                    filename = os.path.join(cwd, cmd[counter + 1])
-                    filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
-                    if filename not in ret_file_dict:
-                        ret_file_dict[filename] = size
-                    else:
-                        ret_file_dict[filename] += size
-                counter += 1
-        else:
-            counter = 0
-            for arg in cmd:
-                if counter == count:
-                    if len(arg) < start + end:
-                        counter += 1
-                        continue
-                    filename = arg[:start + 1] + plus_str + arg[-end:]
-                    filename = os.path.join(cwd, filename)
-                    filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
-                    if filename not in ret_file_dict:
-                        ret_file_dict[filename] = size
-                    else:
-                        ret_file_dict[filename] += size
-                if option == arg:
-                    if len(cmd[counter + 1]) < start + end:
-                        counter += 1
-                        continue
-                    filename = cmd[counter + 1][:start + 1] + plus_str + cmd[counter + 1][-end:]
-                    filename = os.path.join(cwd, filename)
-                    filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
+                counter = 0
+                for arg in cmd:
+                    if counter == count:
+                        filename = os.path.join(cwd, arg)
+                        filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
+                        if arg not in ret_file_dict:
+                            ret_file_dict[filename] = size
+                        else:
+                            ret_file_dict[filename] += size
+                    if option == arg:
+                        filename = os.path.join(cwd, cmd[counter + 1])
+                        filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
+                        if filename not in ret_file_dict:
+                            ret_file_dict[filename] = size
+                        else:
+                            ret_file_dict[filename] += size
+                    counter += 1
+            else:
+                counter = 0
+                for arg in cmd:
+                    if counter == count:
+                        if len(arg) < start + end:
+                            counter += 1
+                            continue
+                        filename = arg[:start + 1] + plus_str + arg[-end:]
+                        filename = os.path.join(cwd, filename)
+                        filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
+                        if filename not in ret_file_dict:
+                            ret_file_dict[filename] = size
+                        else:
+                            ret_file_dict[filename] += size
+                    if option == arg:
+                        if len(cmd[counter + 1]) < start + end:
+                            counter += 1
+                            continue
+                        filename = cmd[counter + 1][:start + 1] + plus_str + cmd[counter + 1][-end:]
+                        filename = os.path.join(cwd, filename)
+                        filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
 
-                    if filename not in ret_file_dict:
-                        ret_file_dict[filename] = size
-                    else:
-                        ret_file_dict[filename] += size
-                counter += 1
+                        if filename not in ret_file_dict:
+                            ret_file_dict[filename] = size
+                        else:
+                            ret_file_dict[filename] += size
+                    counter += 1
     return ret_file_dict
 
 
 class MogamiChanneltoFileAsk():
-    def __init__(self, ):
+    def __init__(self, mds_host):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         # decided statically
-        self.sock.connect(("localhost", 15806))
+        self.sock.connect((mds_host, 15806))
         self.bufsize = 1024
 
     def sendall(self, data):
@@ -137,7 +139,9 @@ class MogamiChanneltoFileAsk():
         return data
 
     def send_msg(self, data):
-        """
+        """send some data which is fixed size (conf.bufsize)
+
+        @param data 
         """
         buf = cPickle.dumps(data)
         while self.bufsize - 3 < len(buf):
@@ -199,24 +203,23 @@ class MogamiJobScheduler():
     """
     >>> scheduler = MogamiJobScheduler()
     """
-    def __init__(self):
+    def __init__(self, feature_file_path, mds_host):
         self.active = True
         self.feature_dict = {}
 
         try:
             # insert command data (if possible)
-            f = open("/tmp/miki/feature_data.dat", 'r')
-            buf = f.read()
-            l = buf.split("\n")
-            self.ap_dict = cPickle.loads(l[0])
-            self.arg_job_dict = cPickle.loads(l[-1])
+            f = open(feature_file_path, 'r')
+            feature_data = cPickle.loads(f.read())
+            self.ap_dict = feature_data[0]
+            self.arg_job_dict = feature_data[1]
             f.close()
         except Exception, e:
             self.active = False
 
         # now get file location by asking to metadata server
         try:
-            self.m_channel = MogamiChanneltoFileAsk()
+            self.m_channel = MogamiChanneltoFileAsk(mds_host)
         except Exception, e:
             self.active = False
 
