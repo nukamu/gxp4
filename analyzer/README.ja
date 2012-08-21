@@ -1,0 +1,18 @@
+==== Analyzer of File Access Pattern Tool ====
+
+! 今回作っているのは割と自分の実験用
+
+[Target Applications]
+* Montage
+* Case Frame Construction
+* Japanese Word Count
+
+[Scripts]
+* parser.py
+ fsから得たlog（'\t'区切りのcsv的な何か）と，state_dirなどをsqlite3のDBに
+ 形式変換して出力
+ [output].dbが作られる
+* analyzer.py
+ [output].dbを用いて事前にできるところまでanalyzeしておき，あるファイルに
+ cPickle化して書き込んでおく
+ [output].datが得られる
