@@ -4,6 +4,9 @@ import logging
 metaport=15806
 dataport=15807
 
+# Define the directory for log
+log_dir="/home/miki/git/gxp4/log"
+
 # Define buffer size and block size in mogami
 bufsize=1024
 blsize=1024 * 1024

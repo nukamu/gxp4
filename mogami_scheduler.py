@@ -44,7 +44,7 @@ def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
             if plus_str == "":
                 if count == -1:
                     # itself
-                    filename = os.path.join(cwd, "." + option)
+                    filename = os.path.join(cwd, option)
                     filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
                     if filename not in ret_file_dict:
                         ret_file_dict[filename] = size

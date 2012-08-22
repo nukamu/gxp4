@@ -4,23 +4,29 @@ import sys,os
 sys.path.append(os.pardir)
 import subprocess
 
-from libs import Channel
+import channel
+import time
 
 def ask_file_access(pid, pipe_path):
-    ch = Channel.MogamiChanneltoAskAP(pipe_path)
+    ch = channel.MogamiChanneltoAskAP(pipe_path)
     ap_list = ch.file_access_req(pid)
     return ap_list
 
 def exec_with_file_access(cmd, pipe_path):
-    ret = subprocess.Popen(cmd)
+    ret = subprocess.Popen(cmd, shell=True)
     pid = ret.pid
     ret.wait()
+    time.sleep(0.01)
+
     return ask_file_access(pid, pipe_path)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         sys.exit("Usage: %s [cmd_to_execute]")
     # remove the first argument of cmd
-    sys.argv.pop(0)
-    ap = exec_with_file_access(sys.argv, "/tmp/mogami_ap")
+    #sys.argv.pop(0)
+
+    cmd = sys.argv[1]
+
+    ap = exec_with_file_access(cmd, "/tmp/mogami_ap")
     print ap

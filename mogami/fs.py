@@ -28,7 +28,7 @@ from system import MogamiLog
 
 
 m_channel = channel.MogamiChanneltoMeta()
-daemons = []
+daemons_list = []
 file_size_dict = {}
 channels = channel.MogamiChannelRepository()
 file_access_dict = {}
@@ -40,30 +40,35 @@ class MogamiFileAccessHistory(object):
         self.ap_dict = {}
         self.ap_lock = threading.Lock()
 
-    def put_ap(self, ap, pid, parent_list=[]):
+    def put_ap(self, ap, pid, parent_list):
         with self.ap_lock:
             if pid not in self.ap_dict:
                 self.ap_dict[pid] = []
             self.ap_dict[pid].append(ap)
+
+            for ppid in parent_list:
+                if ppid not in self.ap_dict:
+                    self.ap_dict[ppid] = []
+                self.ap_dict[ppid].append(ap)
 
     def get_ap(self, pid):
         with self.ap_lock:
             if pid in self.ap_dict:
                 return self.ap_dict[pid]
             else:
-                return None
+                return []
 
 file_access_rep = MogamiFileAccessHistory()
 
-class MogamitoTellAccessPattern(Daemons.MogamiDaemons):
+class MogamitoTellAccessPattern(daemons.MogamiDaemons):
     """Class for answer access pattern history.
     """
     def __init__(self, pipepath):
-        Daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiDaemons.__init__(self)
         self.pipepath = pipepath
         if os.access(self.pipepath, os.F_OK) == True:
             os.remove(self.pipepath)
-        self.channel = Channel.MogamiChanneltoTellAP(self.pipepath)
+        self.channel = channel.MogamiChanneltoTellAP(self.pipepath)
 
     def run(self, ):
         """This thread should answer questions about file access pattern from gxpd process.
@@ -72,15 +77,14 @@ class MogamitoTellAccessPattern(Daemons.MogamiDaemons):
             self.answer_to_client()
 
     def answer_to_client(self, ):
+        """
+        """
         c_channel = self.channel.accept_with_timeout(10.0)
         if c_channel == None:
             return None
         pid = c_channel.recv_msg()
         ap = file_access_rep.get_ap(pid)
-        if ap != None:
-            c_channel.send_msg(ap)
-        else:
-            c_channel.send_msg([])
+        c_channel.send_msg(ap)
         c_channel.finalize()
 
 
@@ -102,12 +106,12 @@ class MogamiFS(Fuse):
         MogamiLog.debug("Init complete!!")
         
         # create a thread for collecting dead threads
-        collector_thread = Daemons.MogamiThreadCollector(daemons)
+        collector_thread = daemons.MogamiThreadCollector(daemons_list)
         collector_thread.start()
 
         # create a thread for telling access pattern logs
         tellap_thread = MogamitoTellAccessPattern('/tmp/mogami_ap')
-        daemons.append(tellap_thread)
+        daemons_list.append(tellap_thread)
         tellap_thread.start()
 
     def finalize(self, ):
@@ -129,7 +133,7 @@ class MogamiFS(Fuse):
         if ans != 0:
             return -ans
         else:
-            st = fileManager.MogamiStat()
+            st = filemanager.MogamiStat()
             st.load(ret_st)
             if fsize >= 0:
                 st.chsize(fsize)
@@ -305,10 +309,10 @@ class MogamiFS(Fuse):
                 raise e
 
             if dest == 'self':
-                self.mogami_file = fileManager.MogamiLocalFile(
+                self.mogami_file = filemanager.MogamiLocalFile(
                     self.fsize, data_path, flag, *mode)
             else:
-                self.mogami_file = fileManager.MogamiRemoteFile(
+                self.mogami_file = filemanager.MogamiRemoteFile(
                     self.fsize, dest, data_path, flag, *mode)
                 ans = self.mogami_file.create_connections(channels)
                 if ans != 0:
@@ -334,7 +338,7 @@ class MogamiFS(Fuse):
                     # with any error, pass this proccess
                     cmd_args = None
                     pid = -1
-                self.access_pattern = fileManager.MogamiAccessPattern(
+                self.access_pattern = filemanager.MogamiAccessPattern(
                     path, cmd_args, pid)
                 end_t = time.time()
                 self.took_time = end_t - start_t
@@ -429,7 +433,7 @@ class MogamiFS(Fuse):
                 path = self.access_pattern.path
 
                 # get pids of parents
-                parents_list = self.access_pattern.get_parents()
+                parents_list = self.access_pattern.parents_list
 
                 end_t = time.time()
                 self.took_time += end_t - start_t
@@ -454,7 +458,7 @@ if __name__ == "__main__":
     MogamiLog.init("fs", conf.fs_loglevel)
     fs = MogamiFS(sys.argv[1],
                   version="%prog " + fuse.__version__,
-                  usage=System.usagestr(), )
+                  usage=system.usagestr(), )
     fs.flags = 0
     fs.multithreaded = conf.multithreaded
     fs.main()

@@ -39,6 +39,8 @@ class MogamiAccessPattern(object):
         self.pid = pid
         self.queue = Queue.Queue()
 
+        self.parents_list = self.get_parents()
+
     def insert_data(self, ops, offset, length):
         self.queue.put((ops, offset, length))
             
@@ -88,20 +90,22 @@ class MogamiAccessPattern(object):
         ret_list = []  # pids list (order shows relation)
         
         child_pid = self.pid
-        count = 0
 
+        count = 0
         while True:
-            f = open("/proc/%d/stat", child_pid)
-            buf = f.read()
-            f.close()
             try:
-                ppid = buf.split(' ')[3]
+                with open("/proc/%s/stat" % (str(child_pid)), "r") as f:
+                    buf = f.read()
+                ppid = int(buf.split(' ')[3])
                 if ppid == 1:
                     break
                 ret_list.append(ppid)
-            except IndexError, e:
+                child_pid = ppid
+            except Exception, e:
                 break
-
+            count += 1
+            if count > 10:  # tentatively
+                break
         return ret_list
 
 class MogamiStat(fuse.Stat):

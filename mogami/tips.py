@@ -55,15 +55,13 @@ class MogamiFileAccessPattern(object):
                     self.mode = AccessPattern.MOD_STRIDE
                     self.stride_read_size = self.last_read - self.last_seq_read_start
                     self.stride_seek_size = offset - self.last_read
-            # 現在ストライドアクセスのとき
+            # case of stride accessing
             elif self.mode == AccessPattern.MOD_STRIDE:
                 if offset == self.last_read:
-                    # 続きがリクエストされたとき
+                    # 
                     if offset + size - self.last_seq_read_start > self.stride_read_size:
                         self.mode = AccessPattern.MOD_SEQ
-                        #print "[tips] mode sequential"
                     else:
-                        #print "[tips] mode stride"
                         return
                 else:
                     if (self.last_read - self.last_seq_read_start == self.stride_read_size) and (offset - self.last_read == self.stride_seek_size) and (size <= self.stride_read_size):

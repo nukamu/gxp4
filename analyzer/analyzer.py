@@ -125,7 +125,11 @@ class MogamiWorkflowIOAnalyzer(object):
             counter += 1
             former_arg = arg
 
-        rel_path = path.replace(self.exe_cwd, '')
+        if path.find(self.exe_cwd) != -1:
+            rel_path = "." + path.replace(self.exe_cwd, '')
+        else:
+            rel_path = path
+        print rel_path
         if read_feature == None:
             if read_size is not 0:
                 read_feature = (-1, -1, "", rel_path, -1)

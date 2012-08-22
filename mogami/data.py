@@ -212,17 +212,15 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 class MogamiData(object):
     """This is the class of mogami's data server
     """
-    def __init__(self, metaaddr, rootpath, mogami_dir):
+    def __init__(self, metaaddr, rootpath):
         """This is the function of MogamiMeta's init.
 
         @param metaaddr ip address or hostname of metadata server
         @param rootpath path of directory to store data into
-        @param mogami_dir path of mogami's root directory
         """
         # basic information of metadata server
         self.metaaddr = metaaddr
         self.rootpath = os.path.abspath(rootpath)
-        self.mogami_dir = mogami_dir
 
         # check directory for data files
         assert os.access(self.rootpath, os.R_OK and os.W_OK and os.X_OK)
@@ -250,8 +248,8 @@ class MogamiData(object):
         MogamiLog.debug("Listening on the port " + str(conf.dataport))
 
         # create a thread to collect dead daemon threads
-        daemons = []
-        collector_thread = daemons.MogamiThreadCollector(daemons)
+        daemons_list = []
+        collector_thread = daemons.MogamiThreadCollector(daemons_list)
         collector_thread.start()
         threads_count = 0
 
@@ -268,7 +266,7 @@ class MogamiData(object):
             datad.name = "D%d" % (threads_count)
             threads_count += 1
             datad.start()
-            daemons.append(datad)
+            daemons_list.append(datad)
             MogamiLog.debug("Created thread name = %s (%d-th threads)" %
                             (datad.getName(), threads_count))
 
@@ -280,11 +278,11 @@ class MogamiData(object):
         self.m_channel.finalize()
 
 
-def main(meta_addr, dir_path, dddfs_dir):
-    data = MogamiData(meta_addr, dir_path, dddfs_dir)
+def main(meta_addr, dir_path):
+    data = MogamiData(meta_addr, dir_path)
     atexit.register(data.finalize)
     data.run()
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
+    main(sys.argv[1], sys.argv[2])

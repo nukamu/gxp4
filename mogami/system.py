@@ -9,7 +9,7 @@ fuse.fuse_python_api = (0, 2)
 
 import logging
 import os.path
-
+import sys
 
 class MogamiNodeInfo(object):
     def __init__(self, ip):
@@ -71,7 +71,7 @@ class MogamiLog(object):
         """
         instance = MogamiLog()
 
-        logdir = os.path.join(os.path.dirname(__file__), "..", "log")
+        logdir = os.path.join(os.path.dirname(__file__), "log")
         if log_type == "fs":
             instance.logfile = os.path.join(logdir, "mogami.log")
         elif log_type == "meta":
@@ -83,8 +83,8 @@ class MogamiLog(object):
         else:
             raise
         if os.access(logdir, os.W_OK) == False:
-            print "Directory for log is permitted to write."
-            raise Exception
+            sys.exit("""** Directory for log is permitted to write. **
+Please confirm the directory "%s".""" % (logdir))
         logging.basicConfig(filename=instance.logfile, 
                             level=output_level,
                             format='[%(asctime)s] %(message)s',
@@ -115,6 +115,14 @@ def usagestr():
     """Usage string.
     """
     return ""+ fuse.Fuse.fusage
+
+class MogamiError(Exception):
+    
+    def __init__(self, typeno, ):
+        self.str = value
+
+    def __str__(self, ):
+        pass
 
 
 if __name__ == "__main__":

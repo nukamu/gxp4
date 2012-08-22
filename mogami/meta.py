@@ -7,22 +7,15 @@ from __future__ import with_statement
 import os
 import os.path
 import sys
-import stat
 import errno
 import socket
-import cPickle
-import time
-import threading
 import Queue
 import string
-import re
 import random
-sys.path.append(os.pardir)
 
 # import mogami's original modules
 import channel
 import metadata
-import system
 import daemons
 import conf
 from system import MogamiLog
@@ -44,7 +37,7 @@ def meta_file_info(path):
 class MogamiSystemInfo(object):
     """This object should be held by metadata server.
     """
-    def __init__(self, meta_rootpath, mogami_dir):
+    def __init__(self, meta_rootpath):
         self.meta_rootpath = os.path.abspath(meta_rootpath)
 
         # information of data servers
@@ -132,94 +125,94 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 self.c_channel.finalize()
                 break
 
-            if req[0] == Channel.REQ_GETATTR:
+            if req[0] == channel.REQ_GETATTR:
                 MogamiLog.debug("** getattr **")
                 self.getattr(self.rootpath + req[1])
 
-            elif req[0] == Channel.REQ_READDIR:
+            elif req[0] == channel.REQ_READDIR:
                 MogamiLog.debug("** readdir **")
                 self.readdir(self.rootpath + req[1])
 
-            elif req[0] == Channel.REQ_ACCESS:
+            elif req[0] == channel.REQ_ACCESS:
                 MogamiLog.debug("** access **")
                 self.access(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_MKDIR:
+            elif req[0] == channel.REQ_MKDIR:
                 MogamiLog.debug("** mkdir **")
                 self.mkdir(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_RMDIR:
+            elif req[0] == channel.REQ_RMDIR:
                 MogamiLog.debug("** rmdir **")
                 self.rmdir(self.rootpath + req[1])
 
-            elif req[0] == Channel.REQ_UNLINK:
+            elif req[0] == channel.REQ_UNLINK:
                 MogamiLog.debug("** unlink **")
                 self.unlink(self.rootpath + req[1])
 
-            elif req[0] == Channel.REQ_RENAME:
+            elif req[0] == channel.REQ_RENAME:
                 MogamiLog.debug("** rename **")
                 self.rename(self.rootpath + req[1],
                             self.rootpath + req[2])
 
-            elif req[0] == Channel.REQ_MKNOD:
+            elif req[0] == channel.REQ_MKNOD:
                 MogamiLog.debug("** mknod **")
                 self.mknod(self.rootpath + req[1], req[2], req[3])
 
-            elif req[0] == Channel.REQ_CHMOD:
+            elif req[0] == channel.REQ_CHMOD:
                 MogamiLog.debug("** chmod **")
                 self.chmod(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_CHOWN:
+            elif req[0] == channel.REQ_CHOWN:
                 MogamiLog.debug("** chown **")
                 self.chown(self.rootpath + req[1], req[2], req[3])
 
-            elif req[0] == Channel.REQ_LINK:
+            elif req[0] == channel.REQ_LINK:
                 self.link(self.rootpath + req[1],
                           self.rootpath + req[2])
 
-            elif req[0] == Channel.REQ_SYMLINK:
+            elif req[0] == channel.REQ_SYMLINK:
                 self.symlink(req[1], self.rootpath + req[2])
 
-            elif req[0] == Channel.REQ_READLINK:
+            elif req[0] == channel.REQ_READLINK:
                 self.readlink(self.rootpath + req[1])
 
-            elif req[0] == Channel.REQ_TRUNCATE:
+            elif req[0] == channel.REQ_TRUNCATE:
                 self.truncate(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_UTIME:
+            elif req[0] == channel.REQ_UTIME:
                 self.utime(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_FSYNC:
+            elif req[0] == channel.REQ_FSYNC:
                 self.fsync(self.rootpath + req[1], req[2])
 
-            elif req[0] == Channel.REQ_OPEN:
+            elif req[0] == channel.REQ_OPEN:
                 self.open(self.rootpath + req[1], req[2], req[3])
 
-            elif req[0] == Channel.REQ_RELEASE:
+            elif req[0] == channel.REQ_RELEASE:
                 MogamiLog.debug("** release **")
                 self.release(req[1], req[2])
 
-            elif req[0] == Channel.REQ_FGETATTR:
+            elif req[0] == channel.REQ_FGETATTR:
                 self.fgetattr(req[1])
 
-            elif req[0] == Channel.REQ_FTRUNCATE:
+            elif req[0] == channel.REQ_FTRUNCATE:
                 MogamiLog.error("** ftruncate **")
 
-            elif req[0] == Channel.REQ_DATAADD:
+            elif req[0] == channel.REQ_DATAADD:
                 MogamiLog.debug("** dataadd **")
                 ip = self.c_channel.getpeername()
                 self.data_add(ip, req[1])
 
-            elif req[0] == Channel.REQ_DATADEL:
+            elif req[0] == channel.REQ_DATADEL:
                 MogamiLog.debug("** datadel **")
                 ip = self.c_channel.getpeername()
                 self.data_del(ip)
 
-            elif req[0] == Channel.REQ_RAMFILEADD:
+            elif req[0] == channel.REQ_RAMFILEADD:
                 MogamiLog.debug("** ramfile add **")
                 self.register_ramfiles(req[1])
 
-            elif req[0] == Channel.REQ_FILEASK:
+            elif req[0] == channel.REQ_FILEASK:
                 MogamiLog.debug("** fileask **")
                 self.file_ask(req[1])
 
@@ -562,7 +555,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         except os.error, e:
             print "OSError in fgetattr (%s)" % (e)
             senddata = [e.errno, 'null']
-        channel.send_header(cPickle.dumps(senddata), self.sock)
+        self.c_channel.fgetattr_answer(senddata)
 
     def file_ask(self, path_list):
         dest_dict = {}
@@ -577,7 +570,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.c_channel.fileask_answer(dest_dict)
 
 
-class MogamiDaemononMeta(daemons.MogamiDaemons):
+class MogamiDaemonOnMeta(daemons.MogamiDaemons):
     """Send the data servers the request to delete files.
 
     @param files file list to delete
@@ -596,7 +589,7 @@ class MogamiDaemononMeta(daemons.MogamiDaemons):
                 pass
 
     def send_delete_request(self, ip, files):
-        c_channel = Channel.MogamiChanneltoData(ip)
+        c_channel = channel.MogamiChanneltoData(ip)
         ans = c_channel.delfile_req(files)
         c_channel.close_req()
         c_channel.finalize()
@@ -605,13 +598,13 @@ class MogamiDaemononMeta(daemons.MogamiDaemons):
 class MogamiMeta(object):
     """This is the class of mogami's metadata server
     """
-    def __init__(self, rootpath, mogami_dir):
+    def __init__(self, rootpath):
         """This is the function of MogamiMeta's init.
         In this function,
         """
         MogamiLog.init("meta", conf.meta_loglevel)
 
-        self.sysinfo = MogamiSystemInfo(rootpath, mogami_dir)
+        self.sysinfo = MogamiSystemInfo(rootpath)
 
         """Check directory for data files.
         """
@@ -630,30 +623,30 @@ class MogamiMeta(object):
         self.lsock.bind(("0.0.0.0", conf.metaport))
         self.lsock.listen(10)
         MogamiLog.debug("Listening at the port " + str(conf.metaport))
-        daemons = []
-        thread_collector = Daemons.MogamiThreadCollector(daemons)
+        daemons_list = []
+        thread_collector = daemons.MogamiThreadCollector(daemons_list)
         thread_collector.start()
         threads_count = 0
 
-        delete_files_thread = MogamiDaemononMeta(self.sysinfo)
+        delete_files_thread = MogamiDaemonOnMeta(self.sysinfo)
         delete_files_thread.start()
 
         while True:
             (client_sock, address) = self.lsock.accept()
             MogamiLog.debug("accept connnect from %s" % (str(address[0])))
-            client_channel = Channel.MogamiChannelforMeta()
+            client_channel = channel.MogamiChannelforMeta()
             client_channel.set_socket(client_sock)
             metad = MogamiMetaHandler(client_channel, self.sysinfo)
             metad.start()
-            daemons.append(metad)
+            daemons_list.append(metad)
 
             MogamiLog.debug("Created thread name = " + metad.getName())
 
 
-def main(dir_path, mogami_dir):
-    meta = MogamiMeta(dir_path, mogami_dir)
+def main(dir_path):
+    meta = MogamiMeta(dir_path)
     meta.run()
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1])

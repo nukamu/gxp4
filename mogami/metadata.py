@@ -13,23 +13,50 @@ class MogamiMetaFS(object):
     """
     def __init__(self, dir_path):
         # rootpath must be absolute path
+        # tail string must not '/'
         self.rootpath = dir_path
-    
+
+    def _get_metadata(self, path):
+        """read metadata from file
+
+        this function must return tuple with three elements (None with error)
+        @param path path of file to get metadata
+        """
+        with open(path, 'r') as f:
+            # read all data from file
+            read_buf = f.read()
+        try:
+            # metadata is separated by ','
+            (dest, datapath, fsize) = buf.rsplit(',')
+            return (dest, datapath, fsize)
+        except ValueError, e:
+            return (None, None, None)
+
     def access(self, path, mode):
         
         pass
 
     def getattr(self, path):
-        pass
+        """
+
+        @path path of file to get attributes
+        @return tuple of st(result of stat) and fsize
+        """
+        st = os.lstat(self.rootpath + path)
+        if os.path.isfile(path):
+            fsize = _get_metadata(path)[2]
+        else:
+            fsize = -1
+        return (st, fsize)
 
     def readdir(self, path):
-        pass
+        return os.listdir(self.rootpath + path)
 
     def mkdir(self, path):
-        pass
+        return os.mkdir(self.rootpath + path)
 
     def rmdir(self, path):
-        pass
+        return os.rmdir(self.rootpath + path)
     
     def unlink(self, path):
         pass
@@ -37,13 +64,13 @@ class MogamiMetaFS(object):
     def rename(self, oldpath, newpath):
         pass
 
-    def chmod(self, path, mode):
+    def chmopd(self, path, mode):
         pass
 
     def chown(self, path, uid, gid):
         pass
 
-    def truncate(self, path, uid, gid):
+    def truncate(self, path, size):
         pass
 
     def utime(self, path, times):
@@ -114,8 +141,9 @@ class MogamiMetaDB(object):
         self.db_cur.execute("""
             INSERT INTO dirs (
             path, mode, uid, """)
-        """TODO:
-        """
+
+    def _rm_dir(self, path):
+        r = self.db_cur.execute("", (path))
 
     def dump_all(self, ):
         """print information of all files
@@ -129,9 +157,10 @@ class MogamiMetaDB(object):
             print ""
     
     def return_st(self, path):
-        """path からファイルのメタデータのリストを返す
-        大体os.lstat の代わりに使える
-        ファイルがなければ None を返す
+        """return metadata statement of a file
+
+        this function can be used as os.lstat
+        return None, if file doesn't exist
 
         @param path file path
         """
@@ -199,16 +228,5 @@ class MogamiMetaDB(object):
 
 
 if __name__ == '__main__':
-    try:
-        os.mkdir("./meta")
-    except Exception, e:
-        pass
-    db = MogamiMetaDB("./meta")
-    i = db.set_row("test", os.lstat("/home/miki/svn/mogami/fs.py"), "testdist", "testpath")
-    print i
-    i = db.set_row("test", os.lstat("/home/miki/svn/mogami/data.py"), "dist", "path")
-    print i
-    st = db.return_st("test")
-    print st
-    dist = db.return_dist("test")
-    print dist
+    import doctest
+    doctest.testmod()

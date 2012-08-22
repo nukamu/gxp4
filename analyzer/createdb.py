@@ -47,20 +47,12 @@ class CreateDB():
         aplogs = csv.reader(open(self.ap_file, 'r'), delimiter='\t')
 
         cmd_dict = {}  # cmd (tuple) -> job_id
-        job_counter = 0
         for ap in aplogs:
-            cmd_key = tuple(ap[0])
-            if cmd_key not in cmd_dict:
-                job_id = job_counter
-                cmd_dict[cmd_key] = job_id
-                job_counter += 1
-            else:
-                job_id = cmd_dict[cmd_key]
             self.db_cur.execute("""
                 INSERT INTO ap_log (
                 job_id, cmd, pid, file_path, created, read_data, write_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, [job_id] + ap)
+                """, ap[:-1])
         self.db_conn.commit()
 
         # insert env
