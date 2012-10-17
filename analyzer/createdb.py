@@ -6,7 +6,7 @@ import sys
 import csv
 import sqlite3
 import os.path
-
+import re
 
 class CreateDB():
     def __init__(self, db_path, ap_file, state_dir):
@@ -30,7 +30,6 @@ class CreateDB():
             os.rename(self.db_path, self.db_path + '.org')
         scripts_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         print sys.argv
-        print scripts_dir
         return os.system("sqlite3 %s < %s" %
                          (self.db_path, os.path.join(scripts_dir,
                                                      'create_tables.sql')))
@@ -48,20 +47,34 @@ class CreateDB():
 
         cmd_dict = {}  # cmd (tuple) -> job_id
         for ap in aplogs:
+            if ap.count("") != 0:
+                ap.remove("")
+            assert len(ap) == 7, len(ap)
             self.db_cur.execute("""
                 INSERT INTO ap_log (
                 job_id, cmd, pid, file_path, created, read_data, write_data)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, ap[:-1])
+                """, ap)
         self.db_conn.commit()
-
+        
+        cwd = '/data/local2/mikity/mnt/CaseFrameConst/solvers/gxp_make'
+        
+        #xmp_mount = "/data/local2/mikity/xmp_mnt"
+        #cwd_re = re.compile('<tr><td>cwd</td><td>(?P<cwd>[^<]+)</td></tr>')
         # insert env
         #with open(os.path.join(self.state_dir, 'index.html'), 'r') as f:
         #    while True:
-        #        line_buf = f.readline()
-        tmp_cwd = "/home/mikity/svn/workflows/apps/CaseFrameConst/solvers/gxp_make"
+        #        line_data = f.readline()
+        #        if line_data == "":
+        #            break
+        #        result = cwd_re.match(line_data)
+        #        if result != None:
+        #            cwd = result.group('cwd').replace(xmp_mount, '')
+        #            break
+        #print cwd
+        
         self.db_cur.execute("""
-        INSERT INTO workflow_env (cwd) VALUES (?)""", (tmp_cwd, ))
+        INSERT INTO workflow_env (cwd) VALUES (?)""", (cwd, ))
         self.db_conn.commit()
 
         return 0
@@ -69,7 +82,7 @@ class CreateDB():
 if __name__ == '__main__':
     # args check
     if len(sys.argv) != 4:
-        sys.exit("Usage: %s [ap_file] [state_dir] [out_db_name]")
+        sys.exit("Usage: %s [ap_file] [state_dir] [out_db_name]" % (sys.argv[0]))
     ap_file = sys.argv[1]
     state_dir = sys.argv[2]
     db_name = sys.argv[3]

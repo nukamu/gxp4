@@ -13,7 +13,10 @@ def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
     job_id_list = []
     app = cmd[0]
     for arg in cmd:
-        job_id_list.extend(arg_job_dict[(app, arg)])
+        try:
+            job_id_list.extend(arg_job_dict[(app, arg)])
+        except KeyError:
+            continue
     job_id_set = list(set(job_id_list))
 
     # select max jobs' job_id
@@ -75,7 +78,10 @@ def file_from_feature(cmd, feature_dict, arg_job_dict, cwd):
                         if len(arg) < start + end:
                             counter += 1
                             continue
-                        filename = arg[:start + 1] + plus_str + arg[-end:]
+                        if end > 0:
+                            filename = arg[:start + 1] + plus_str + arg[-end:]
+                        else:
+                            filename = arg[:start + 1] + plus_str
                         filename = os.path.join(cwd, filename)
                         filename = os.path.normpath(filename.replace(MOGAMI_MOUNT, ""))
                         if filename not in ret_file_dict:

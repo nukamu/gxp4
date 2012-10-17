@@ -97,9 +97,10 @@ class MogamiWorkflowIOAnalyzer(object):
         read_size = self.size_from_iolog(read_log)
         write_feature = None
         write_size = self.size_from_iolog(write_log)
-        
+
         for arg in cmd:
             cmd_file = os.path.normpath(os.path.join(self.exe_cwd, arg))
+            #print cmd_file, path
             likely = self.my_str_find(cmd_file, path)
 
             if cmd_file == path:
@@ -115,10 +116,10 @@ class MogamiWorkflowIOAnalyzer(object):
                 option = ""
                 if former_arg[:1] == '-':
                     option = former_arg
-                if read_size is not 0:
+                if read_size is not 0 and read_feature == None:
                     read_feature = (likely[0], likely[1], likely[2],
                                     option, counter)
-                if write_size is not 0:
+                if write_size is not 0 and read_feature == None:
                     write_feature = (likely[0], likely[1], likely[2],
                                      option, counter)
 
@@ -129,13 +130,13 @@ class MogamiWorkflowIOAnalyzer(object):
             rel_path = "." + path.replace(self.exe_cwd, '')
         else:
             rel_path = path
-        print rel_path
         if read_feature == None:
             if read_size is not 0:
                 read_feature = (-1, -1, "", rel_path, -1)
         if write_feature == None:
             if write_size is not 0:
                 write_feature = (-1, -1, "", rel_path, -1)
+        print read_feature, write_feature, read_size, write_size
         return (read_feature, write_feature, read_size, write_size)
 
     def size_from_iolog(self, log_list):
@@ -153,11 +154,16 @@ class MogamiWorkflowIOAnalyzer(object):
         str1_base = os.path.basename(str1)
         str2_base = os.path.basename(str2)
 
-        if len(str1_base) > len(str2_base):
+        str1_dir = os.path.dirname(str1)
+        str2_dir = os.path.dirname(str2)
+        if str1_dir != str2_dir:
             return None
 
+        #if len(str1_base) > len(str2_base):
+        #    return None
+
         counter = 0
-        while counter < len(str1_base):
+        while counter < len(str1_base) and counter < len(str2_base):
             if str1_base[counter] == str2_base[counter]:
                 counter += 1
             else:
@@ -166,7 +172,7 @@ class MogamiWorkflowIOAnalyzer(object):
         from_left_offset = counter - 1
 
         counter = 0
-        while counter < len(str1_base):
+        while counter < len(str1_base) and counter < len(str2_base):
             if str1_base[-counter] == str2_base[-counter]:
                 counter += 1
             else:
@@ -176,13 +182,15 @@ class MogamiWorkflowIOAnalyzer(object):
 
         if from_left_offset == -1 and from_right_offset == -1:
             return None
-        plus_str = str2_base[from_left_offset + 1: -from_right_offset]
+        if from_right_offset > 0:
+            plus_str = str2_base[from_left_offset + 1: -from_right_offset]
+        else:
+            plus_str = str2_base[from_left_offset + 1:]
         if plus_str == "":
             return None
-        if (from_left_offset + from_right_offset + 1) != len(str1_base):
-            return None
+        #if (from_left_offset + from_right_offset + 1) != len(str1_base):
+        #    return None
 
-        #print str1_base, str2_base
         return (from_left_offset, from_right_offset, plus_str)
 
     def output(self, output_file):
@@ -191,6 +199,7 @@ class MogamiWorkflowIOAnalyzer(object):
         @param output_file path of output file
         """
         f = open(output_file, 'w+')
+        #print self.ap_dict
         f.write(cPickle.dumps((self.ap_dict, self.arg_job_dict)))
         f.close()
 

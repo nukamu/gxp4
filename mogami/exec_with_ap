@@ -14,9 +14,11 @@ def ask_file_access(pid, pipe_path):
 
 def exec_with_file_access(cmd, pipe_path):
     ret = subprocess.Popen(cmd, shell=True)
+
     pid = ret.pid
+    print pid
+
     ret.wait()
-    time.sleep(0.01)
 
     return ask_file_access(pid, pipe_path)
 

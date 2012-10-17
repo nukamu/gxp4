@@ -2521,13 +2521,14 @@ class job_scheduler(gxpc.cmd_interpreter):
         gxpc.cmd_interpreter.__init__(self)
 
         # miki-comment: temporary 
-        feature_file_path = "/tmp/miki/feature_data_montage.dat"
+        feature_file_path = "/tmp/miki/feature.dat"
         mds_host = "hongo200"
         
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler(
             feature_file_path, mds_host)
         if self.mogami_scheduler.active != True:
             Es("warning: could not optimize job scheduling\n")
+        self.calc_time = 0.0
 
     def ensure_directory(self, dire):
         if dire == "": return 0
