@@ -300,7 +300,7 @@ class MogamiFS(Fuse):
             self.flag = flag
             self.mode = mode
 
-            (ans, dest, self.metafd, data_path, self.fsize,
+            (ans, dest, data_path, self.fsize,
              self.created) = m_channel.open_req(path, flag, *mode)
 
             if ans != 0:  # error on metadata server
@@ -419,7 +419,7 @@ class MogamiFS(Fuse):
             MogamiLog.debug("** release **")
 
             fsize = self.mogami_file.release(flags)
-            ans = m_channel.release_req(self.metafd, fsize)
+            ans = m_channel.release_req(self.path, fsize)
             # delete file size cache
             if self.path in file_size_dict:
                 del file_size_dict[self.path]
@@ -455,10 +455,14 @@ class MogamiFS(Fuse):
 
 
 if __name__ == "__main__":
+    if 'big_writes' not in sys.argv:
+        sys.argv.extend(['-o', 'big_writes'])
+    if 'large_read' not in sys.argv:
+        sys.argv.extend(['-o', 'large_read'])
     MogamiLog.init("fs", conf.fs_loglevel)
     fs = MogamiFS(sys.argv[1],
                   version="%prog " + fuse.__version__,
-                  usage=system.usagestr(), )
+                  usage=system.usagestr())
     fs.flags = 0
     fs.multithreaded = conf.multithreaded
     fs.main()

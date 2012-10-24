@@ -117,16 +117,16 @@ class MogamiChannel(object):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(path)
 
-    def connect(self, dist, port):
+    def connect(self, dest, port):
         """connect to specified server
 
-        @param dist distination IP or hostname to connect
+        @param dest destination IP or hostname to connect
         @param port port number to connect
         """
         # make a socket to communicate with others
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.sock.connect((dist, port))
+        self.sock.connect((dest, port))
 
         # set name (IP address)
         self.peername = self.sock.getpeername()[0]
@@ -362,9 +362,9 @@ class MogamiChanneltoMeta(MogamiChannel):
         # (0 or errno, dest, metafd, datapath, size, created)
         return ans
 
-    def release_req(self, metafd, fsize):
+    def release_req(self, path, fsize):
         with self.lock:
-            self.send_msg((REQ_RELEASE, metafd, fsize))
+            self.send_msg((REQ_RELEASE, path, fsize))
             ans = self.recv_msg()
         # 0 or errno
         return ans
@@ -516,9 +516,9 @@ class MogamiChannelforMeta(MogamiChannelforServer):
         with self.lock:
             self.send_msg(ans)
 
-    def open_answer(self, ans, dest, fd, data_path, size, created):
+    def open_answer(self, ans, dest, data_path, size, created):
         with self.lock:
-            self.send_msg((ans, dest, fd, data_path, size, created))
+            self.send_msg((ans, dest, data_path, size, created))
 
     def release_answer(self, ans):
         with self.lock:

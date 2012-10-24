@@ -111,11 +111,11 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     """This is the class for thread created for each client.
     This handler is run as multithread.
     """
-    def __init__(self, client_channel, sysinfo):
+    def __init__(self, client_channel, sysinfo, meta_rep):
         daemons.MogamiDaemons.__init__(self)
         self.sysinfo = sysinfo
+        self.meta_rep = meta_rep
         self.c_channel = client_channel
-        self.rootpath = sysinfo.meta_rootpath
 
     def run(self, ):
         while True:
@@ -127,66 +127,64 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
 
             if req[0] == channel.REQ_GETATTR:
                 MogamiLog.debug("** getattr **")
-                self.getattr(self.rootpath + req[1])
+                self.getattr(req[1])
 
             elif req[0] == channel.REQ_READDIR:
                 MogamiLog.debug("** readdir **")
-                self.readdir(self.rootpath + req[1])
+                self.readdir(req[1])
 
             elif req[0] == channel.REQ_ACCESS:
                 MogamiLog.debug("** access **")
-                self.access(self.rootpath + req[1], req[2])
+                self.access(req[1], req[2])
 
             elif req[0] == channel.REQ_MKDIR:
                 MogamiLog.debug("** mkdir **")
-                self.mkdir(self.rootpath + req[1], req[2])
+                self.mkdir(req[1], req[2])
 
             elif req[0] == channel.REQ_RMDIR:
                 MogamiLog.debug("** rmdir **")
-                self.rmdir(self.rootpath + req[1])
+                self.rmdir(req[1])
 
             elif req[0] == channel.REQ_UNLINK:
                 MogamiLog.debug("** unlink **")
-                self.unlink(self.rootpath + req[1])
+                self.unlink(req[1])
 
             elif req[0] == channel.REQ_RENAME:
                 MogamiLog.debug("** rename **")
-                self.rename(self.rootpath + req[1],
-                            self.rootpath + req[2])
+                self.rename(req[1], req[2])
 
             elif req[0] == channel.REQ_MKNOD:
                 MogamiLog.debug("** mknod **")
-                self.mknod(self.rootpath + req[1], req[2], req[3])
+                self.mknod(req[1], req[2], req[3])
 
             elif req[0] == channel.REQ_CHMOD:
                 MogamiLog.debug("** chmod **")
-                self.chmod(self.rootpath + req[1], req[2])
+                self.chmod(req[1], req[2])
 
             elif req[0] == channel.REQ_CHOWN:
                 MogamiLog.debug("** chown **")
-                self.chown(self.rootpath + req[1], req[2], req[3])
+                self.chown(req[1], req[2], req[3])
 
             elif req[0] == channel.REQ_LINK:
-                self.link(self.rootpath + req[1],
-                          self.rootpath + req[2])
+                self.link(req[1], req[2])
 
             elif req[0] == channel.REQ_SYMLINK:
-                self.symlink(req[1], self.rootpath + req[2])
+                self.symlink(req[1], req[2])
 
             elif req[0] == channel.REQ_READLINK:
-                self.readlink(self.rootpath + req[1])
+                self.readlink(req[1])
 
             elif req[0] == channel.REQ_TRUNCATE:
-                self.truncate(self.rootpath + req[1], req[2])
+                self.truncate(req[1], req[2])
 
             elif req[0] == channel.REQ_UTIME:
-                self.utime(self.rootpath + req[1], req[2])
+                self.utime(req[1], req[2])
 
             elif req[0] == channel.REQ_FSYNC:
-                self.fsync(self.rootpath + req[1], req[2])
+                self.fsync(req[1], req[2])
 
             elif req[0] == channel.REQ_OPEN:
-                self.open(self.rootpath + req[1], req[2], req[3])
+                self.open(req[1], req[2], req[3])
 
             elif req[0] == channel.REQ_RELEASE:
                 MogamiLog.debug("** release **")
@@ -259,33 +257,20 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     # Mogami's actual metadata access APIs
     def getattr(self, path):
         MogamiLog.debug("path = %s" % path)
-
-        # get result of stat (ans and st)
         try:
-            st = os.lstat(path)
+            (st, fsize) = self.meta_rep.getattr(path)
             ans = 0
         except os.error, e:
             MogamiLog.debug("stat error!")
             ans = e.errno
+            fsize = None
             st = None
-
-        # get file size
-        if os.path.isfile(path):
-            try:
-                fsize = meta_file_info(path)[2]
-                MogamiLog.debug("%s's size is %d" % (path, fsize))
-            except Exception, e:
-                fsize = 0
-                MogamiLog.error("error in meta_file_info")
-        else:
-            fsize = -1
-
         self.c_channel.getattr_answer(ans, st, fsize)
 
     def readdir(self, path):
         MogamiLog.debug('path=%s' % (path))
         try:
-            l = os.listdir(path)
+            l = self.meta_rep.readdir(path)
             ans = 0
             MogamiLog.debug("result = %s" % (str(l)))
         except os.error, e:
@@ -298,7 +283,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def access(self, path, mode):
         MogamiLog.debug("path = %s" % (path))
         try:
-            if os.access(path, mode) == True:
+            if self.meta_rep.access(path, mode) == True:
                 ans = 0
             else:
                 ans = errno.EACCES
@@ -310,7 +295,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def mkdir(self, path, mode):
         MogamiLog.debug("path = %s mode = %o" % (path, mode))
         try:
-            os.mkdir(path, mode)
+            self.meta_rep.mkdir(path, mode)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -319,7 +304,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def rmdir(self, path):
         MogamiLog.debug("path=%s" % (path))
         try:
-            os.rmdir(path)
+            self.meta_rep.rmdir(path)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -334,7 +319,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             except Exception, e:
                 MogamiLog.error("cannot remove file contents of %s", path)
         try:
-            os.unlink(path)
+            self.meta_rep.unlink(path)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -344,7 +329,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def rename(self, oldpath, newpath):
         MogamiLog.debug(oldpath + ' -> ' + newpath)
         try:
-            os.rename(oldpath, newpath)
+            self.meta_rep.rename(oldpath, newpath)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -353,7 +338,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def chmod(self, path, mode):
         MogamiLog.debug("path = %s w/ mode %s" % (path, oct(mode)))
         try:
-            os.chmod(path, mode)
+            self.meta_rep.chmod(path, mode)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -362,7 +347,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def chown(self, path, uid, gid):
         MogamiLog.debug("path=%s uid=%d gid=%d" % (path, uid, gid))
         try:
-            os.chown(path, uid, gid)
+            self.meta_rep.chown(path, uid, gid)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -371,7 +356,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def symlink(self, frompath, topath):
         MogamiLog.debug("frompath = %s, topath = %s" % (frompath, topath))
         try:
-            os.symlink(frompath, topath)
+            self.meta_rep.symlink(frompath, topath)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -381,7 +366,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         print "path = " + path
         MogamiLog.debug("path = %s" % path)
         try:
-            result = os.readlink(path)
+            result = self.meta_rep.readlink(path)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -396,17 +381,8 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         """
         MogamiLog.debug("path = %s, length = %d" % (path, length))
         try:
-            f = open(path, 'r+')
-            buf = f.read()
-            l = buf.rsplit(',')
-            buf = "%s,%s,%s" % (l[0], l[1], str(length))
-            f.truncate(0)
-            f.seek(0)
-            f.write(buf)
-            f.close()
+            (dest, data_path) = self.meta_rep.truncate(path, length)
             ans = 0
-            dest = l[0]
-            data_path = l[1]
         except IOError, e:
             ans = e.errno
             dest = None
@@ -422,7 +398,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         print "** utime **"
         MogamiLog.debug("path = %s, times = %s" % (path, str(times)))
         try:
-            os.utime(path, times)
+            self.meta_rep.utime(path, times)
             ans = 0
         except os.error, e:
             ans = e.errno
@@ -435,25 +411,17 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         @param flag flags for open(2)
         @param mode open mode (may be empty tuple): actual value is mode[0]
         """
-        if os.access(path, os.F_OK) == True:
+        if self.meta_rep.access(path, os.F_OK) == True:
             # When the required file exist...
             try:
                 MogamiLog.debug("!!find the file %s w/ %o" % (path, flag))
-                if mode:
-                    fd = os.open(path, os.O_RDWR, mode[0])
-                else:
-                    fd = os.open(path, os.O_RDWR)
-                MogamiLog.debug("fd = %d" % (fd))
-                buf = os.read(fd, conf.bufsize)
-                l = buf.rsplit(',')
+                (dest, data_path, fsize) = self.meta_rep.open(
+                    path, flag, mode)
 
                 # create data to send
                 ans = 0
-                dest = l[0]
-                data_path = l[1]
-                fsize = string.atol(l[2])
                 created = False
-            except os.error, e:
+            except Exception, e:
                 MogamiLog.debug("!!find the file but error for %s (%s)" %
                                 (path, e))
                 ans = e.errno
@@ -462,22 +430,13 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 data_path = None
                 fsize = None
                 created = False
-
-            # case of client has file data
-            if dest == self.c_channel.getpeername():
-                dest = "self"
-
-            self.c_channel.open_answer(ans, dest, fd,
-                                       data_path, fsize, created)
         else:
             # creat new file
             MogamiLog.debug("can't find the file so create!!")
             try:
                 fsize = 0
-                if mode:
-                    fd = os.open(path, os.O_RDWR | os.O_CREAT, mode[0])
-                else:
-                    fd = os.open(path, os.O_RDWR | os.O_CREAT)
+
+                # determine (dest, data_path)
                 dest = self.sysinfo.choose_data_server(
                     self.c_channel.getpeername())
                 if dest == None:
@@ -486,23 +445,11 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                                    for i in xrange(16))
                 data_path = os.path.join(
                     self.sysinfo.get_data_rootpath(dest), filename)
-
+                
+                self.meta_rep.create(path, flag, mode, dest, data_path)
                 MogamiLog.debug("filename is %s" % (data_path,))
-
-                # write metadata
-                buf = dest + ',' + data_path + ',' + str(fsize)
-                os.write(fd, buf)
-                os.fsync(fd)
-                ans = 0
                 created = True
-            except os.error, e:
-                print "!! have fatal error @1!! (%s)" % (e)
-                ans = e.errno
-                dest = None
-                fd = None
-                data_path = None
-                fsize = None
-                created = False
+                ans = 0
             except Exception, e:
                 print "!! have fatal error @2!! (%s)" % (e)
                 ans = e.errno
@@ -512,39 +459,22 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 fsize = None
                 created = False
 
-            # case of client has file data
-            if dest == self.c_channel.getpeername():
-                dest = "self"
+        # case of client has file data
+        if dest == self.c_channel.getpeername():
+            dest = "self"
 
-            self.c_channel.open_answer(ans, dest, fd, data_path, fsize, created)
+        self.c_channel.open_answer(ans, dest, data_path, fsize, created)
 
-    def release(self, fd, fsize):
+    def release(self, path, fsize):
         """release handler.
 
         @param fd file discripter
         @param writelen size of data to be written
         """
-        os.lseek(fd, 0, os.SEEK_SET)
         try:
-            buf = os.read(fd, conf.bufsize)
-        except os.error, e:
+            self.meta_rep.release(path, fsize)
+        except Exception, e:
             print "OSError in release (%s)" % (e)
-        l = buf.rsplit(',')
-
-        size = string.atol(l[2])
-        if size != fsize:
-            try:
-                buf = l[0] + ',' + l[1] + ',' + str(fsize)
-                MogamiLog.debug("write to meta file %s" % buf)
-
-                os.ftruncate(fd, len(buf))
-                os.lseek(fd, 0, os.SEEK_SET)
-                os.write(fd, buf)
-                os.fsync(fd)
-            except os.error, e:
-                print "OSError in release (%s)" % (e)
-
-        os.close(fd)
         ans = 0
         self.c_channel.release_answer(ans)
 
@@ -600,23 +530,24 @@ class MogamiMeta(object):
     """
     def __init__(self, rootpath):
         """This is the function of MogamiMeta's init.
-        In this function,
         """
         MogamiLog.init("meta", conf.meta_loglevel)
 
         self.sysinfo = MogamiSystemInfo(rootpath)
 
-        """Check directory for data files.
-        """
-        if os.access(rootpath, os.R_OK and os.W_OK and os.X_OK) == False:
-            sys.exit("%s is not permitted to use. " % (rootpath, ))
+        # create a object to retrieve metadata information (meta repository)
+        if conf.meta_type == 'fs':
+            self.meta_rep = metadata.MogamiMetaFS(rootpath)
+        elif conf.meta_type == 'db':
+            self.meta_rep = metadata.MogamiMetaDB(rootpath)
+        else:
+            sys.exit("meta_type should be 'fs' or 'db' in config file")
 
-        MogamiLog.info("** Mogami metadata server init **")
+        MogamiLog.info("** Mogami metadata server init was completed **")
         MogamiLog.debug("rootpath = " + rootpath)
 
     def run(self, ):
-        """Connected from Mogami Client.
-        """
+        # listen for being connected from Mogami client.
         self.lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.lsock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self.lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -636,7 +567,8 @@ class MogamiMeta(object):
             MogamiLog.debug("accept connnect from %s" % (str(address[0])))
             client_channel = channel.MogamiChannelforMeta()
             client_channel.set_socket(client_sock)
-            metad = MogamiMetaHandler(client_channel, self.sysinfo)
+            metad = MogamiMetaHandler(client_channel,
+                                      self.sysinfo, self.meta_rep)
             metad.start()
             daemons_list.append(metad)
 
