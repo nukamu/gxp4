@@ -109,14 +109,13 @@ class MogamiAccessPattern(object):
         return ret_list
 
 class MogamiStat(fuse.Stat):
-    attrs = ("st_mode", "st_ino", "st_dev", "st_nlink",
-             "st_uid", "st_gid", "st_size",
-             "st_atime", "st_mtime", "st_ctime")
+    attrs = ("st_mode", "st_ino", "st_dev", "st_uid", "st_gid", "st_nlink",
+             "st_size", "st_atime", "st_mtime", "st_ctime")
     mogami_attrs = ("st_mode", "st_uid", "st_gid", "st_nlink",
                     "st_size", "st_atime", "st_mtime", "st_ctime")
 
     def __init__(self, ):
-        for attr in self.mogami_attrs:
+        for attr in self.attrs:
             try:
                 setattr(self, attr, 0)
             except AttributeError, e:
@@ -127,17 +126,16 @@ class MogamiStat(fuse.Stat):
                       for attr in self.mogami_attrs)
         return "<MogamiStat %s>" % (s,)
 
-    def load(self, st):
+    def load(self, st_dict):
         for attr in self.attrs:
             try:
-                setattr(self, attr, getattr(st, attr))
+                setattr(self, attr, st_dict[attr])
             except AttributeError, e:
                 print e
 
     # TODO: Deprecated
     def chsize(self, size):
         self.st_size = size
-
 
 class MogamiBlock(object):
     """Class of a object of a block

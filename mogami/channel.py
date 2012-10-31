@@ -464,9 +464,9 @@ class MogamiChannelforServer(MogamiChannel):
 
 
 class MogamiChannelforMeta(MogamiChannelforServer):
-    def getattr_answer(self, ans, st, fsize):
+    def getattr_answer(self, ans, st_dict):
         with self.lock:
-            self.send_msg((ans, st, fsize))
+            self.send_msg((ans, st_dict))
 
     def readdir_answer(self, ans, dir_list):
         with self.lock:

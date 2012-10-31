@@ -117,6 +117,9 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.meta_rep = meta_rep
         self.c_channel = client_channel
 
+        if self.meta_rep == None:  # case of 'db'
+            self.meta_rep = metadata.MogamiMetaDB(self.sysinfo.meta_rootpath)
+
     def run(self, ):
         while True:
             req = self.c_channel.recv_request()
@@ -258,14 +261,13 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
     def getattr(self, path):
         MogamiLog.debug("path = %s" % path)
         try:
-            (st, fsize) = self.meta_rep.getattr(path)
+            st_dict = self.meta_rep.getattr(path)
             ans = 0
         except os.error, e:
             MogamiLog.debug("stat error!")
             ans = e.errno
-            fsize = None
-            st = None
-        self.c_channel.getattr_answer(ans, st, fsize)
+            st_dict = None
+        self.c_channel.getattr_answer(ans, st_dict)
 
     def readdir(self, path):
         MogamiLog.debug('path=%s' % (path))
@@ -395,7 +397,6 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.c_channel.truncate_answer(ans, dest, data_path)
 
     def utime(self, path, times):
-        print "** utime **"
         MogamiLog.debug("path = %s, times = %s" % (path, str(times)))
         try:
             self.meta_rep.utime(path, times)
@@ -539,7 +540,7 @@ class MogamiMeta(object):
         if conf.meta_type == 'fs':
             self.meta_rep = metadata.MogamiMetaFS(rootpath)
         elif conf.meta_type == 'db':
-            self.meta_rep = metadata.MogamiMetaDB(rootpath)
+            self.meta_rep = None
         else:
             sys.exit("meta_type should be 'fs' or 'db' in config file")
 

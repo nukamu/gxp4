@@ -19,7 +19,6 @@ class MogamiMetaFS(object):
         # check directory for data files
         if os.access(self.rootpath, os.R_OK and os.W_OK and os.X_OK) == False:
             sys.exit("%s is not permitted to use. " % (rootpath, ))
-            
 
     def _get_metadata(self, path):
         """read metadata from file
@@ -79,12 +78,15 @@ class MogamiMetaFS(object):
         @path path of file to get attributes
         @return tuple of st(result of stat) and fsize
         """
+        ret_dict = {}
+        attrs = ("st_mode", "st_ino", "st_dev", "st_uid", "st_gid",
+                 "st_nlink","st_size", "st_atime", "st_mtime", "st_ctime")
         st = os.lstat(self.rootpath + path)
+        for attr in attrs:
+            ret_dict[attr] = getattr(st, attr)
         if os.path.isfile(self.rootpath + path):
-            fsize = self._get_metadata(path)[2]
-        else:
-            fsize = -1
-        return st, fsize
+            ret_dict["st_size"] = self._get_metadata(path)[2]
+        return ret_dict
 
     def readdir(self, path):
         return os.listdir(self.rootpath + path)
@@ -141,8 +143,9 @@ class MogamiMetaDB(object):
         # create a table for files
         self.db_cur.execute("""
         CREATE TABLE content (
-        path TEXT PRIMARY KEY,
-        par_dir TEXT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT,
+        par_dir INT,
         mode INT,
         uid INT,
         gid INT,
@@ -155,37 +158,8 @@ class MogamiMetaDB(object):
         dest_path TEXT
         )
         """)
-        
-    def _set_file(self, path, mode, uid, gid, ulink, size, atime, mtime,
-                  ctime, dest, dest_path):
-        r = self.db_cur.execute("SELECT * FROM content WHERE path = ?;", (path,)).fetchone()
-        if r:
-            return errno.EEXIST
-        self.db_cur.execute("""
-        INSERT INTO content (
-        path, mode, uid, gid, nlink, size, atime, mtime, ctime, dest, dest_path) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (path, mode, uid, gid, nlink, size,
-              atime, mtime, ctime, dest, dest_path))
-        self.db_conn.commit()
-        return 0
-
-    def _rm_file(path):
-        r = self.db_cur.execute("", (path))
-
-    def _set_dir(self, path, st):
-        """register metadata of a file to DB
-
-        @param path path of the directory
-        @param st return value of os.lstat(path)
-        @return if success 0, error number with error
-        """
-        self.db_cur.execute("""
-            INSERT INTO dirs (
-            path, mode, uid, gid, ulink, size, atime, mtime, ctime,""")
-
-    def _rm_dir(self, path):
-        r = self.db_cur.execute("", (path))
+        self.gid = os.getgid()
+        self.uid = os.getuid()
 
     def dump_all(self, ):
         """print information of all files
@@ -198,28 +172,6 @@ class MogamiMetaDB(object):
                 print tmp2,
             print ""
     
-    def _return_st(self, path):
-        """return metadata statement of a file
-
-        this function can be used as os.lstat
-        return None, if file doesn't exist
-
-        @param path file path
-        """
-        self.db_cur.execute("""
-        SELECT mode, uid, gid, nlink, size, atime, mtime, ctime 
-        FROM content WHERE path = ?""", (path, ))
-        l = self.db_cur.fetchall()
-        if len(l) != 1:
-            return None  # the file doesn't exist
-        st_org = l[0]
-        st = tips.MogamiStat()
-        i = 0
-        for attr in st.mogami_attrs:
-            setattr(st, attr, st_org[i])
-            i += 1
-        return st
-
     def _return_dest(self, path):
         """will return which data server has required file.
 
@@ -246,43 +198,90 @@ class MogamiMetaDB(object):
         l = self.db_cur.fetchall()
         if len(l) != 1:
             return False
-        if mode == F_OK:
+        if mode == os.F_OK:
             return True
 
-        # check file mode and access mode
-        pass
+        assert len(l) == 3
+        (f_mode, f_uid, f_gid) = l[0]
 
+        # check file mode and access mode
+        if self.uid == f_uid:
+            mode <<= 6
+        elif self.gid == f_gid:
+            mode <<= 3
+        if f_mode & mode == mode:
+            return True
+        else:
+            return False
+        
     def getattr(self, path):
+        st_dict = {}  # dict to return
         self.db_cur.execute("""
-        SELECT mode, uid, gid, nlink, size, atime, mtime, ctime 
+        SELECT mode, id, id, uid, gid, nlink, size, atime, mtime, ctime 
         FROM content WHERE path = ?""", (path))
         l = self.db_cur.fetchall()
         if len(l) != 1:
             self._raise_with_error(errno.ENOENT)
-        st_org = l[0]
-        st = tips.MogamiStat()
-        i = 0
-        for attr in st.mogami_attrs:
-            setattr(st, attr, st_org[i])
-            i += 1
-        return st
+        attrs = ("st_mode", "st_ino", "st_dev", "st_uid", "st_gid",
+                 "st_nlink","st_size", "st_atime", "st_mtime", "st_ctime")
+        for i in range(10):
+            st_dict[attrs[i]] = int(l[i])
+        return st_dict
 
     def listdir(self, path):
+        if path[-1] == '/':
+            path = path[:-1]
+        self._check_permission(path, os.R_OK)
         self.db_cur.execute("""
-        SELECT path FROM content WHERE par_dir = ?""", (path))
+        SELECT path FROM content 
+        in (SELECT par_id FROM content WHERE path = ?)""", (path))
+        l = self.db_cur.fetchall()
+        return l
 
     def mkdir(self, path):
-        self.db_cur.execute(""" 
-        """)
+        create_mode = 16877
+        size = 4096
+        current_t = int(time.time())
+        nlink = 1
+
+        # check permission
+        self._check_permission(os.path.dirname(path), os.W_OK)
+
+        # check duplication
+        r = self.db_cur.execute("SELECT * FROM content WHERE path = ?;",
+                                (path,)).fetchone()
+        if r:
+            return self._raise_with_error(errno.EEXIST)
+
+        # make metadata of the directory
+        self.db_cur.execute("""
+        INSERT INTO files (
+        path, mode, uid, gid, nlink, size, atime, mtime, ctime, dist, dist_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (path, create_mode, self.uid, self.gid, nlink, size,
+              current_t, current_t, current_t, 'None', 'None'))
+        self.db_conn.commit()
 
     def rmdir(self, path):
-        self.db_cur.execute("""
-        SELECT mode, uid, gid, nlink, size, atime, mtime, ctime 
-        FROM content WHERE path = ?""", (path))
-        l = self.db_cur.fetchall()
-        if len(l) != 1:
-            self._raise_with_error(errno.ENOENT)
+        # check permission
+        self._check_permission(os.path.dirname(path), os.W_OK)
 
+        (dir_id, dir_mode) = self.db_cur.execute(
+            "SELECT id, mode FROM content WHERE path = ?", (path)).fetchone()
+
+        # check if the directory has some contents
+        r = self.db_cur.execute("SELECT * FROM content WHERE par_id = ?",
+                                (dir_id)).fetchone()
+        if r:
+            return self._raise_with_error(errno.ENOTEMPTY)
+
+        # check if it is directory
+        if self._is_directory(dir_mode) == False:
+            self._raise_with_error(errno.ENOTDIR)
+
+        self.db_cur.execute("""
+        DELETE FROM content WHERE path = ?""", (path))
+        self.db_cur.commit()
     
     def unlink(self, path):
         self.db_cur.execute("""
@@ -302,9 +301,10 @@ class MogamiMetaDB(object):
             self._raise_with_error(errno.ENOENT)
 
     def chmod(self, path, mode):
+
         ## extract a record and update (mode)
         self.db_cur.execute("""
-        SELECT mode, uid, gid, nlink, size, atime, mtime, ctime 
+        UPDATE mode, uid, gid, nlink, size, atime, mtime, ctime 
         FROM content WHERE path = ?""", (path))
         l = self.db_cur.fetchall()
         if len(l) != 1:
@@ -321,13 +321,7 @@ class MogamiMetaDB(object):
 
     def truncate(self, path, length):
         ## extract a record and update (size)
-        self.db_cur.execute("""
-        SELECT mode, uid, gid, nlink, size, atime, mtime, ctime 
-        FROM content WHERE path = ?""", (path))
-        l = self.db_cur.fetchall()
-        if len(l) != 1:
-            self._raise_with_error(errno.ENOENT)
-
+        self._check_permission(path, os.W_OK)
 
     def utime(self, path, times):
         """
@@ -336,11 +330,31 @@ class MogamiMetaDB(object):
         """
         pass
 
-    def _check_permission(self, mode):
+    def _is_directory(self, mode):
+        dir_flag = 1 << 13
+        if dir_flag & mode == 0:
+            return True
+        else:
+            return False
+
+    def _check_permission(self, path, mode):
         """
         @return 
         """
-        pass
+        self.db_cur.execute("""
+        SELECT mode, uid, gid FROM content WHERE path = ?""", (path))
+        l = self.db_cur.fetchall()
+        if len(l) != 1:            
+            self._raise_with_error(errno.ENOENT)
+        assert len(l) == 3
+        (f_mode, f_uid, f_gid) = l[0]
+        # check file mode and access mode
+        if self.uid == f_uid:
+            mode <<= 6
+        elif self.gid == f_gid:
+            mode <<= 3
+        if f_mode & mode != mode:
+            self._raise_with_error(errno.EACCES)
 
     def _raise_with_error(self, num):
         e = os.error(os.strerror(num))

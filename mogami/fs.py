@@ -129,14 +129,12 @@ class MogamiFS(Fuse):
     def getattr(self, path):
         MogamiLog.debug("** getattr ** path = %s" % (path, ))
 
-        (ans, ret_st, fsize) = m_channel.getattr_req(path)
+        (ans, st_dict) = m_channel.getattr_req(path)
         if ans != 0:
             return -ans
         else:
             st = filemanager.MogamiStat()
-            st.load(ret_st)
-            if fsize >= 0:
-                st.chsize(fsize)
+            st.load(st_dict)
         # if file_size_dict has cache of file size, replace it
         if path in file_size_dict:
             st.chsize(file_size_dict[path])
