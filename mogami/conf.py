@@ -30,4 +30,4 @@ data_loglevel=logging.INFO
 # Get access pattern or not
 ap=True
 
-meta_type='fs'   # should be 'fs' or 'db'
+meta_type='db'   # should be 'fs' or 'db'

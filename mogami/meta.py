@@ -117,10 +117,10 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.meta_rep = meta_rep
         self.c_channel = client_channel
 
+    def run(self, ):
         if self.meta_rep == None:  # case of 'db'
             self.meta_rep = metadata.MogamiMetaDB(self.sysinfo.meta_rootpath)
 
-    def run(self, ):
         while True:
             req = self.c_channel.recv_request()
             if req == None:
