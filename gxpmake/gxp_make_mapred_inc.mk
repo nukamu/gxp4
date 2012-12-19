@@ -41,7 +41,7 @@ endif
 # in small_step exueciton, read, map, and partition are all separate tasks
 # read a part of the input file and let the reader generate the sub-file (read.$(1))
 $(int_dir)/read.$(1) : $(int_dir)/created $(input)
-	$(reader) $(input) $(1),$(n_mappers) > $$@
+	$(reader) $(input) > $$@
 # mapper takes the sub-file and generate a key-value file (map.$(1))
 $(int_dir)/map.$(1) : $(int_dir)/read.$(1) 
 	cat $$^ | $(mapper) > $$@
@@ -52,7 +52,7 @@ $(int_dir)/part.$(1) : $(int_dir)/map.$(1)
 else
 # big_step execution, in which read, map, and partition are piped
 $(int_dir)/part.$(1) : $(int_dir)/created $(input)
-	$(reader) $(input) $(1),$(n_mappers) | $(mapper) | $(partitioner) $(n_reducers) > $$@
+	$(reader) $(input) | $(mapper) | $(partitioner) $(n_reducers) > $$@
 endif
 endef
 
@@ -104,10 +104,10 @@ endef
 # [2] set default parameters
 # 
 
-input:=$(or $(input),gxp_mapred_default_input)
+input_dir:=$(or $(input),gxp_mapred_default_input)
 output:=$(or $(output),gxp_mapred_default_output)
 
-reader:=$(or $(reader),ex_line_reader)
+reader:=$(or $(reader),cat)
 mapper:=$(or $(mapper),ex_word_count_mapper)
 reducer:=$(or $(reducer),ex_count_reducer)
 n_mappers:=$(or $(n_mappers),3)
@@ -128,7 +128,7 @@ endif
 
 .DELETE_ON_ERROR :
 
-map_idxs:=$(shell seq 0 $(shell expr $(n_mappers) - 1))
+map_files:=$(wildcard $(input_dir)/*)
 reduce_idxs:=$(shell seq 0 $(shell expr $(n_reducers) - 1))
 # reduce.1 reduce.2 ... reduce.R
 reduce_files:=$(addprefix $(int_dir)/reduce.,$(reduce_idxs))
@@ -142,8 +142,9 @@ $(eval $(call merge_rule))
 
 $(eval $(call int_dir_rule))
 
-$(foreach m,$(map_idxs),\
+$(foreach m,$(map_files),\
   $(eval $(call map_rule,$(m))))
+
 
 $(foreach r,$(reduce_idxs),\
   $(eval $(call reduce_rule,$(r))))
@@ -152,7 +153,7 @@ $(foreach r,$(reduce_idxs),\
 # [4] clear all variables (is there a way to 'undef' vars?)
 #
 
-input:=
+input_dir:=
 output:=
 reader:=
 mapper:=

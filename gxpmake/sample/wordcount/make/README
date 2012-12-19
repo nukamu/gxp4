@@ -1,0 +1,304 @@
+
+== GXP MapReduce ==
+
+This directory contains two experimental systems doing MapReduce with
+GXP.
+
+* GXP make.  One is implemented with a simple makefile included from
+your Makefile.  The function is similar to Hadoop streaming.  You can
+specify external programs as mappers and reducers.
+
+* GXP js.  The other is implemented directly on top of GXP js (job
+scheduling framework).  In this framework, the programmer writes
+mappers and reducers as python functions.  The program is driven by
+your arbitrary python program, so you can write programs iteratively
+issuing MapReduce tasks until convergence (e.g., K-means).
+
+== GXP make MapReduce ==
+
+=== Basics ===
+
+The simplest example doing word count is in the directory make/wc.
+Makefile is the main makefile.
+
+  input:=../../README
+  mapper:=./wc_map.awk
+  reducer:=./wc_reduce.awk
+  include $(GXP_MAKE_MAPRED)
+
+$(GXP_MAKE_MAPRED) is actually
+GXP3_DIR/gxpmake/gxp_make_mapred_inc.mk, which is a regular makefile 
+of less than 200 lines defining all the mechanics.  wc_map.awk and
+wc_reduce.awk are the following AWK scripts. 
+
+  #!/usr/bin/awk
+  # wc_map.awk
+  { for (i = 1; i <= NF; i++) print $i,1; }
+
+  #!/usr/bin/awk
+  # wc_reduce.awk
+  BEGIN { current = ""; count = 0 }
+  {
+    if ($1 != current) {
+	if (current != "") print current, count;
+	current = $1;
+	count = 0;
+    }
+    count += $2;
+  }
+  END { if (current != "") print current, count; }
+
+Of course you can write these programs in any language.
+
+As this example suggests, the basic usage is:
+
+- at least define three variables: mapper, reducer, and input
+- input is the input file
+- mapper and reducer is an arbitrary command line that reads input
+from stdin and writes to stdout
+- mapper should output its key-value pairs, one pair per line.  Each pair
+has the simplest format "KEY VALUE" where KEY should not have any space
+(just check wc_map.awk).
+
+cd that directory and run
+
+  gxpc make -n
+
+to see if what is going to happen (note that -n option tells make
+it is a dry run).  After you are confident, you can really run the
+script.
+
+  gxpc make
+
+=== How it works ===
+
+Here is what happens with the above command.
+
+  # preparation
+  1: mkdir -p gxp_mapred_default_output_int_dir 
+  2: touch gxp_mapred_default_output_int_dir/created
+  # mappers
+  3: ex_line_reader ../../README 0,3 | ./wc_map.awk | ex_partitioner 2 > gxp_mapred_default_output_int_dir/part.0
+  4: ex_line_reader ../../README 1,3 | ./wc_map.awk | ex_partitioner 2 > gxp_mapred_default_output_int_dir/part.1
+  5: ex_line_reader ../../README 2,3 | ./wc_map.awk | ex_partitioner 2 > gxp_mapred_default_output_int_dir/part.2
+  # reducers
+  6: ex_exchanger gxp_mapred_default_output_int_dir/part.0 gxp_mapred_default_output_int_dir/part.1 gxp_mapred_default_output_int_dir/part.2 0,2 | sort | ./wc_reduce.awk > gxp_mapred_default_output_int_dir/reduce.0
+  7: ex_exchanger gxp_mapred_default_output_int_dir/part.0 gxp_mapred_default_output_int_dir/part.1 gxp_mapred_default_output_int_dir/part.2 1,2 | sort | ./wc_reduce.awk > gxp_mapred_default_output_int_dir/reduce.1
+  # final sort
+  8: sort -m gxp_mapred_default_output_int_dir/reduce.0 gxp_mapred_default_output_int_dir/reduce.1 > gxp_mapred_default_output
+  # cleanup 
+  9: rm gxp_mapred_default_output_int_dir/part.1 gxp_mapred_default_output_int_dir/reduce.1 gxp_mapred_default_output_int_dir/part.2 gxp_mapred_default_output_int_dir/created gxp_mapred_default_output_int_dir/part.0 gxp_mapred_default_output_int_dir/reduce.0
+
+* Lines 1-2 create an intermediate directory.
+* Lines 3-5 run mappers. Each mapper job is actually a pipeline consisting of three programs.
+** ex_line_reader reads the specified part of the input file, respecting word boundaries, and output them to stdout. For example, "ex_line_reader ../../README 0,3" reads the first one third of ../../README.
+** ./wc_map.awk, the true mapper program specified by the user, takes the output of the ex_line_reader and emits key value pairs.
+** ex_partitioner determines which key pairs should go to which reducers and write them in a format understandable by the reduce state (ex_exchanger).  Basically, the format is a series of "chunks."  A single chunk contains a header indicating which reducer it should go, followed by a number of key-value pairs going to the that reducer.  Note that a single file contains key-value pairs for ALL reducers.
+* Lines 6-7 run reducers.  Each reduce job is again a three stage pipe lines.
+** ex_exchanger reads all specified files, removing headers and skipping chunks not addressed to itself.  The output is a pure key-value streams understandable by the user-specified reducer program.
+** sort stage sorts the result of ex_exchanger, so that the user-specified reducer program receives key-value pairs in the sorted order.
+** finally the user-speicifed reducer program takes them.
+* The line 8 is the final merge stage.
+
+=== Customization ===
+
+You can customize many things in the above command lines.
+Each time you customize something, you can check its effect by using
+"gxpc make -n".
+
+Some obvious parameters are the following:
+
+* n_mappers : the number of mappers (default: 3)
+* n_reducers : the number of reducers (default: 2)
+* output : output file (default: gxp_mapred_default_output)
+* int_dir : directory to which intermediate files are written (default: $(output)_int_dir)
+* keep_intermediates : if set to 'y', do not remove intermediate files (default: no)
+* small_step : if set to 'y', the entire pipeline is executed in small steps, so that you can examine intermediate files after each step (default: no)
+
+Less obvious parameters that should need some explanations are the following.
+
+* reader : a program that reads a specified fragment of an input file (default: ex_line_reader).
+* partitioner : a program that determines which key-value pairs should go to which reducer (default: ex_partitioner).
+* exchanger : a program that reads mappers' outputs (intermediate files) and format them for a reducer (default: ex_exchanger)
+* sorter : a program that sorts intermediate files just in front of each reducer (default: sort)
+* combiner : an optional program that reads an intermediate file from a mapper and performs whatever local processing you want to do.  most typically, you reduce output to each reducer, so that data transfer to reducers are minimized. or you may want to sort output to each reducer, so that a combiner can simply merge results from all mappers without sorting them (default : None)
+* merger : a program that finally merges output files from all reducers (default: sort -m)
+
+At this point, they are not well-documented.  The basic idea is you can customize what you have seen
+in the "How it works" section.  You can check the default command line and substitute your program for
+the default program you want to customize.
+
+When you see the output of "gxpc make -n" you will find many programs 
+
+=== Files === 
+
+The following files are always created.
+* $(int_dir)/part.<IDX> : output from a mapper
+
+The following files are created when small_step flag is 'y'.
+
+
+=== Performance concerns === 
+
+* When the ouput is large, the final merge step (sort -m) is likely to nullify any performance improvement you gained from parallelization.
+
+
+=== BUGs and TODOs: === 
+
+- you can only specify a single file as input.
+- the key-value pair format is inflexible (key cannot contain any space).
+
+== GXP python MapReduce ==
+
+=== The simplest example ===
+
+The simplest example is in js/wc/wc.py
+
+  #!/usr/bin/python
+  import mapred
+  mapred.sched(map_cmd="./wc_map.py", reduce_cmd="./wc_reduce.py", 
+               input_files=["a"])
+
+We assume two separate programs wc_map.py and wc_reduce.py whose
+contents are as follows.
+
+  #!/usr/bin/python
+  # wc_map.py
+  import sys
+  import mapred
+  def mapf(line, R, *opts):
+      for w in line.split():
+          R.add(w, 1)
+  
+  sys.exit(mapred.become_mapper(map_fun=mapf))
+
+  #!/usr/bin/python
+  # wc_reduce.py
+  import sys
+  import mapred
+  def reducef(key, val):
+      print key,val
+  
+  sys.exit(mapred.become_reducer(reduce_fun=reducef))
+
+We will later explain how to define all of them in a single file and
+make everything much more compact.  But for now, we separate them for
+conceptual simplity.
+
+Once you have them in place, then you run it by:
+
+  gxpc mapred ./wc.py 
+
+This calls mapred.sched, which sends map and reduce tasks to the GXP
+job scheduler.  By default, only one map job and reduce job will be
+generated (no parallelization).  I will shrotly describe how to customize
+them, along with other options.
+
+In wc_map.py and wc_reduce.py, you are supposed to define map and
+reduce as python functions and pass it to respective APIs
+become_mapper and become_reducer.  
+
+The map function (mapf above) receives a single record (a line by
+default) as its first argument and what we call "reduction object" as
+its second argument.  Key-value pairs can be emitted by calling "add"
+function with a key-value pair.
+
+The reduce function receives a single key value pair at a time.
+Unlike some other incarnations of MapReduce, the value parameter is
+already reduced using + operator by default.  So for example, if you call
+
+  R.add("a", 1)
+  R.add("a", 2)
+  R.add("a", 3)
+
+in your map jobs, a reducer will be called only once with
+
+  reducef("a", 6)
+
+rather than three times with
+
+  reducef("a", 1)
+  reducef("a", 2)
+  reducef("a", 3)
+
+This behavior can be retained by appropriately specifying reduce
+operators (use "append" instead of "+"), as explained shortly.
+
+=== Driving a series of MapReduces, or an iterative MapReduce ===
+
+Since executing a single MapReduce job only takes calling
+mapred.sched, you can execute MapReduce jobs as many times as you want
+within your script.
+
+=== Defining map and reduce in a single file ===
+
+It is often more convenient to define both map and reduce in a single
+file.  You can achieve this by calling another API mapred.become_job
+and passing both map_fun and reduce_fun. That is,
+
+  #!/usr/bin/python
+  # wc_map_job.py
+  import sys,mapred
+  
+  def mapf(line, R, *opts):
+      for w in line.split():
+          R.add(w, 1)
+  
+  def reducef(key, val):
+      print key,val
+  
+  sys.exit(mapred.become_job(map_fun=mapf, reduce_fun=reducef))
+
+Let's assume you save this file in wc_job.py, Then the driver program
+can be the same as before except you specify wc_job.py both for
+map_cmd and reduce_cmd arguments.  You could further simplify the
+driver by specifying a single cmd argument instead of two.  That is,
+
+  #!/usr/bin/python
+  import mapred
+  mapred.sched(cmd="./wc_job.py", input_files=["a"])
+
+=== Defining everything in a single file ===
+
+You can even merge the driver into a single file.  For this, you
+simply judge within your script if it behaves as a job or the driver.
+This can be done by checking an enviroment variable MAPRED_JOB, which
+is defined only in jobs.  Thus, you can do everything in a single file
+by:
+
+  #!/usr/bin/python
+  import os,sys,mapred
+  
+  def mapf(line, R, *opts):
+      for w in line.split():
+          R.add(w, 1)
+  
+  def reducef(key, val):
+      print key,val
+  
+  if os.environ.has_key("MAPRED_JOB"):
+      sys.exit(mapred.become_job(map_fun=mapf, reduce_fun=reducef))
+  else:
+      mapred.sched(cmd=sys.argv[0], input_files=["a"])
+
+Note that the execution mechanism is the same as before.
+mapreduce.sched 
+
+=== mapred.sched options ===
+
+The API function mapred.sched takes many parameters.  All parameters,
+including mandatory ones, should be passed as keyword arguments.
+
+* mandatory parameters:
+** input_files : a list of file names to be read by the mapper
+* nearly mandatory parameters:
+** map_cmd (either map_cmd or cmd must be defined) : command line of a map job
+** reduce_cmd (either map_cmd or cmd must be defined) : command line of a reduce job
+* optional parameters :
+** cmd : if map_cmd (reduce_cmd) is not defined, this is used for map_cmd (reduce_cmd). convenient if map_cmd and reduce_cmd are the same.
+** input_files_delimiter (default: ":"): to be removed. for now, remember input_files should not contain this letter.
+** n_mappers (default: 1) : the number of map jobs.
+** n_reducers (default: 1) : the number of reduce jobs.
+** load_balancing_scheme (default: "block"): choose from "block", "file", and "none".  See below for details.
+** affinity :
+

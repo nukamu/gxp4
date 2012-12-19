@@ -151,7 +151,8 @@ default_src_files = [ "$GXP_DIR",
                       "$GXP_DIR/mogami/filemanager.py",
                       "$GXP_DIR/mogami/system.py",
                       "$GXP_DIR/mogami/tips.py",
-                      "$GXP_DIR/mogami/exec_with_ap"
+                      "$GXP_DIR/mogami/bin",
+                      "$GXP_DIR/mogami/bin/exec_with_ap"
                       ]
 
 #
