@@ -52,10 +52,12 @@ REQ_RAMFILEADD = 27
 REQ_RAMFILEDEL = 28
 REQ_FILEDEL = 29
 REQ_FILEASK = 30
+REQ_FILEREP = 31
+REQ_RECVREPsend = 32
 
 # requests related to scheduler
-REQ_ADDAP = 31
-REQ_SCHEDULE = 32
+REQ_ADDAP = 33
+REQ_SCHEDULE = 34
 
 # channel's type
 TYPE_TCP = 0
@@ -452,11 +454,32 @@ class MogamiChanneltoData(MogamiChannel):
             self.send_msg((REQ_CLOSE, ))
 
     def delfile_req(self, files):
+        """supposed to be used by metadata server.
+        """
         with self.lock:
             self.send_msg((REQ_FILEDEL, files))
             ans = self.recv_msg()
         return ans
 
+    def filerep_req(self, org_path, dest, dest_path):
+        """supposed to be used by metadata server.
+        """
+        with self.lock:
+            self.send_msg((REQ_FILEREP, org_path, dest, dest_path))
+
+    def recvrep_req(self, dest_path, f_size):
+        with self.lock:
+            self.send_msg((REQ_RECVREP, dest_path, f_size))
+
+    def recvrep_getanswer(self, ):
+        with self.lock:
+            ans = self.recv_msg()
+        return ans
+
+    def filerep_getanswer(self, ):
+        with self.lock:
+            (ans, size) = self.recv_msg()
+        return ans, size
 
 class MogamiChannelforServer(MogamiChannel):
     def recv_request(self, ):
@@ -561,6 +584,10 @@ class MogamiChannelforData(MogamiChannelforServer):
     def filedel_answer(self, ans):
         with self.lock:
             self.send_msg(ans)
+
+    def filerep_answer(self, ans, size):
+        with self.lock:
+            self.send_msg((ans, size))
 
 
 class MogamiChanneltoTellAP(MogamiChannel):

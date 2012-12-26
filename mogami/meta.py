@@ -21,19 +21,6 @@ import conf
 from system import MogamiLog
 
 
-def meta_file_info(path):
-    """read metadata
-    """
-    f = open(path, 'r')
-    buf = f.read()
-    f.close()
-    l = buf.rsplit(',')
-    if len(l) != 3:
-        return (None, None, None)
-    # (dest, data_path, fsize)
-    return (l[0], l[1], int(l[2]))
-
-
 class MogamiSystemInfo(object):
     """This object should be held by metadata server.
     """
@@ -46,6 +33,7 @@ class MogamiSystemInfo(object):
 
         self.ramfile_list = []
         self.delfile_q = Queue.Queue()
+        self.repfile_q = Queue.Queue()
 
     def add_data_server(self, ip, rootpath):
         """append a data server to Mogami system
@@ -103,9 +91,80 @@ class MogamiSystemInfo(object):
 
     def add_delfile(self, dest, data_path):
         """
+        @param dest 
+        @param data_path
         """
         self.delfile_q.put((dest, data_path))
 
+    def add_repfile(self, org, org_data_path, dest, dest_data_path):
+        """
+        """
+        self.repfile_q.put((org, org_data_path, dest, dest_data_path))
+
+
+class MogamiDaemonOnMeta(daemons.MogamiDaemons):
+    """A daemon on the metadata server.
+
+    handle file {replication, deletion} requests.
+    """
+    def __init__(self, sysinfo, meta_rep):
+        MogamiLog.debug("== start daemon on metadata server ==")
+        daemons.MogamiDaemons.__init__(self)
+        self.meta_rep = meta_rep
+        self.delfile_q = sysinfo.delfile_q
+        self.repfile_q = sysinfo.repfile_q
+        self.sock_list =[]
+        self.sock_dict = {}
+
+    def run(self, ):
+        while True:
+            # check deletion requests
+            try:
+                (target_ip, target_file) = self.delfile_q.get(timeout=1)
+                self.send_delete_request(target_ip, [target_file, ])
+            except Queue.Empty:
+                pass
+
+            # check replication requests
+            try:
+                (path, org, org_path, dest, 
+                 dest_path) = self.repfile_q.get(timeout=1)
+                self.send_replication_request(path, org, org_path, 
+                                              dest, dest_path)
+            except Queue.Empty:
+                pass
+
+            # check replication end messages
+            ch_list = select.select(self.sock_list, [], [], 1)[0]
+            for sock_id in ch_list:
+                (ch, path, org, org_path,
+                 dest, dest_path) = self.sock_dict[sock_id]
+                (ans, f_size) = ch.filerep_getanswer()
+                if ans == 0:
+                    self.meta_rep.addrep(path, dest, dest_path, f_size)
+                    ## add new location to metadata 
+                   print "*** add replication ***"
+                self.sock_list.remove(sock_id)
+                del self.sock_dict[sock_id]
+
+    def send_delete_request(self, ip, files):
+        MogamiLog.debug("file delete request was sent (%s -> %s)" %
+                        (ip, str(files)))
+        c_channel = channel.MogamiChanneltoData(ip)
+        ans = c_channel.delfile_req(files)
+        c_channel.close_req()
+        c_channel.finalize()
+
+    def send_replication_request(self, path, org, org_path, dest, dest_path):
+        MogamiLog.debug("file replication request was sent (%s: %s -> %s: %s)" %
+                        (org, org_path, dest, dest_path))
+        c_channel = channel.MogamiChanneltoData(org)
+        c_channel.filerep_req(org_path, dest, dest_path)
+
+        sock_id = c_channel.sock.fileno()
+        self.sock_list.append(sock_id)
+        self.sock_dict[sock_id] = (c_channel, path, org, org_path,
+                                   dest, dest_path)
 
 class MogamiMetaHandler(daemons.MogamiDaemons):
     """This is the class for thread created for each client.
@@ -216,6 +275,10 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             elif req[0] == channel.REQ_FILEASK:
                 MogamiLog.debug("** fileask **")
                 self.file_ask(req[1])
+            
+            elif req[0] == channel.REQ_FILEREP:
+                MogamiLog.debug("** filerep ** ")
+                self.file_rep(req[1], req[2])
 
             else:
                 MogamiLog.error("[error] Unexpected Header")
@@ -314,17 +377,16 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
 
     def unlink(self, path):
         MogamiLog.debug("path = %s" % path)
-        if os.path.isfile(path):
-            try:
-                (dest, data_path, fsize) = meta_file_info(path)
-                self.sysinfo.add_delfile(dest, data_path)
-            except Exception, e:
-                MogamiLog.error("cannot remove file contents of %s", path)
         try:
-            self.meta_rep.unlink(path)
+            (dest, dest_path) = self.meta_rep.unlink(path)
+            if dest != None:
+                self.sysinfo.add_delfile(dest, dest_path)
             ans = 0
         except os.error, e:
             ans = e.errno
+        except Exception, e:
+            ans = e.errno
+            MogamiLog.error("cannot remove file contents of %s" % path)
 
         self.c_channel.unlink_answer(ans)
 
@@ -365,7 +427,6 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.c_channel.symlink_answer(ans)
 
     def readlink(self, path):
-        print "path = " + path
         MogamiLog.debug("path = %s" % path)
         try:
             result = self.meta_rep.readlink(path)
@@ -500,30 +561,12 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 dest_dict[path] = None
         self.c_channel.fileask_answer(dest_dict)
 
-
-class MogamiDaemonOnMeta(daemons.MogamiDaemons):
-    """Send the data servers the request to delete files.
-
-    @param files file list to delete
-    """
-    def __init__(self, sysinfo):
-        daemons.MogamiDaemons.__init__(self)
-        self.delfile_q = sysinfo.delfile_q
-        
-    def run(self, ):
-        while True:
-            count = 0
-            try:
-                (target_ip, target_file) = self.delfile_q.get(timeout=5)
-                self.send_delete_request(target_ip, [target_file, ])
-            except Queue.Empty:
-                pass
-
-    def send_delete_request(self, ip, files):
-        c_channel = channel.MogamiChanneltoData(ip)
-        ans = c_channel.delfile_req(files)
-        c_channel.close_req()
-        c_channel.finalize()
+    def file_rep(self, path, dest):
+        (org, org_path, fsize) = self.meta_rep._get_metadata(path)
+        f_name = os.path.basename(org_path)
+        dest_path = os.path.join(self.sysinfo.get_data_rootpath(dest),
+                                 f_name)
+        self.sysinfo.add_repfile(path, org, org_path, dest, dest_path)
 
 
 class MogamiMeta(object):
@@ -560,8 +603,8 @@ class MogamiMeta(object):
         thread_collector.start()
         threads_count = 0
 
-        delete_files_thread = MogamiDaemonOnMeta(self.sysinfo)
-        delete_files_thread.start()
+        meta_daemon_thread = MogamiDaemonOnMeta(self.sysinfo, self.meta_rep)
+        meta_daemon_thread.start()
 
         while True:
             (client_sock, address) = self.lsock.accept()

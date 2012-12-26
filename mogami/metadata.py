@@ -37,7 +37,7 @@ class MogamiMetaFS(object):
             e.errno = 2
             raise e
         return dest, data_path, fsize
-
+    
     def open(self, path, flag, mode):
         """return infomation required in open().
 
@@ -107,7 +107,14 @@ class MogamiMetaFS(object):
         return os.rmdir(self.rootpath + path)
     
     def unlink(self, path):
-        return os.unlink(self.rootpath + path)
+        dest = None
+        dest_path = None
+
+        if os.path.isfile(path):
+            (dest, dest_path, fsize) = self._get_metadata(path)
+        os.unlink(self.rootpath + path)
+
+        return dest, dest_path
             
     def rename(self, oldpath, newpath):
         return os.rename(self.rootpath + oldpath, self.rootpath + newpath)
@@ -140,6 +147,12 @@ class MogamiMetaFS(object):
 
     def utime(self, path, times):
         return os.utime(self.rootpath + path, times)
+    
+    def addrep(self, path, dest, dest_path, f_size):
+        f = open(self.rootpath + org, 'a')
+        buf = "%s,%s,%d\n" % (dest, dest_path, f_size)
+        f.write(buf)
+        f.close()
 
 class MogamiMetaDB(object):
     """Class for managing metadata in db (using sqlite3).
@@ -354,15 +367,31 @@ class MogamiMetaDB(object):
         # check permission (parent dir)
         self._ensure_permission_from_path(os.path.dirname(path), os.W_OK)
 
-        (f_id, f_mode) = self.db_cur.execute(
-            "SELECT id, mode FROM content WHERE path = ?", (path, )).fetchone()
+        dest = None
+        dest_path = None
+
+        self.db_cur.execute(
+            "SELECT id, mode, dest, dest_path FROM content WHERE path = ?",
+            (path, ))
+        l = self.db_cur.fetchall()
+        if len(l) != 1:
+            self._raise_with_error(errno.ENOENT)
+        f_id = int(l[0][0])
+        f_mode = int(l[0][1])
+
+        if len(l[0][2]) > 0:
+            dest = l[0][2]
+            dest_path = l[0][3]
+
         # check if it is not directory
         if self._is_directory(int(f_mode)) == True:
             self._raise_with_error(errno.EISDIR)
 
         self.db_cur.execute("""
-        DELETE FROM content WHERE path = ?""", (path, ))
+        DELETE FROM content WHERE id = ?""", (f_id, ))
         self.db_conn.commit()
+
+        return dest, dest_path
 
     def symlink(self, frompath, topath):
         create_mode = 41471  # symlink

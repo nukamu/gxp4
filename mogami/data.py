@@ -81,6 +81,14 @@ class MogamiDataHandler(daemons.MogamiDaemons):
                 MogamiLog.debug("** filedel **")
                 self.filedel(req[1])
 
+            elif req[0] == channel.REQ_FILEREP:
+                MogamiLog.debug("** filerep **")
+                self.filerep(req[1], req[2], req[3])
+
+            elif req[0] == channel.REQ_RECVREP:
+                MogamiLog.debug("** recvrep **")
+                self.recvrep(req[1], req[2])
+
             else:
                 MogamiLog.debug('** this is unexpected header. break!')
                 self.c_channel.finalize()
@@ -207,6 +215,45 @@ class MogamiDataHandler(daemons.MogamiDaemons):
             ans = e.errno
 
         self.c_channel.filedel_answer(ans)
+
+    def filerep(self, org_path, dest, dest_path):
+        to_channel = channel.MogamiChanneltoData(dest)
+        
+        f = open(org_path, 'r')
+        f_size = os.fstat(f.fileno()).st_size
+        to_channel.recvrep_req(dest_path, f_size)
+        send_size = 0
+        
+        while send_size < f_size:
+            buf = f.read(conf.blsize)
+            to_channel.sock.sendall(buf)
+            send_size += len(buf)
+        assert (send_size == f_size)
+
+        MogamiLog.debug("finish send data of file")
+        ans = to_channel.recvrep_getanswer()
+        if ans == 0:
+            self.c_channel.filerep_answer(ans, f_size)
+        to_channel.finalize()
+
+    def recvrep(self, data_path, f_size):
+        try:
+            f = open(data_path, 'w+')
+            write_size = 0
+            MogamiLog.debug("replication will be created! size = %d" % (f_size))
+            
+            while write_size < f_size:
+                if (f_size - write_size) < conf.blsize:
+                    buf = self.c_channel.recvall(f_size - write_size)
+                else:
+                    buf = self.c_channel.recvall(conf.blsize)
+                    f.write(buf)
+                    write_size += len(buf)
+            f.close()
+            ans = 0
+        except Exception:
+            ans = -1
+        self.c_channel.recvrep_answer(ans, f_size)
 
 
 class MogamiData(object):
