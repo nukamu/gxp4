@@ -9,6 +9,7 @@ import os.path
 import sys
 import errno
 import socket
+import select
 import Queue
 import string
 import random
@@ -96,10 +97,10 @@ class MogamiSystemInfo(object):
         """
         self.delfile_q.put((dest, data_path))
 
-    def add_repfile(self, org, org_data_path, dest, dest_data_path):
+    def add_repfile(self, path, org, org_data_path, dest, dest_data_path):
         """
         """
-        self.repfile_q.put((org, org_data_path, dest, dest_data_path))
+        self.repfile_q.put((path, org, org_data_path, dest, dest_data_path))
 
 
 class MogamiDaemonOnMeta(daemons.MogamiDaemons):
@@ -142,7 +143,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
                 (ans, f_size) = ch.filerep_getanswer()
                 if ans == 0:
                     self.meta_rep.addrep(path, dest, dest_path, f_size)
-                    ## add new location to metadata 
+                    # add new location to metadata 
                     print "*** add replication ***"
                 self.sock_list.remove(sock_id)
                 del self.sock_dict[sock_id]
@@ -486,7 +487,10 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             except Exception, e:
                 MogamiLog.debug("!!find the file but error for %s (%s)" %
                                 (path, e))
-                ans = e.errno
+                try:
+                    ans = e.errno
+                except Exception, e:
+                    ans = errno.ENOENT
                 dest = None
                 fd = None
                 data_path = None
@@ -562,8 +566,11 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         self.c_channel.fileask_answer(dest_dict)
 
     def file_rep(self, path, dest):
-        (org, org_path, fsize) = self.meta_rep._get_metadata(path)
-        f_name = os.path.basename(org_path)
+        print "path = %s, dest = %s" % (path, dest)
+        (org, org_path, fsize) = self.meta_rep._get_metadata_one(path)
+        print "org = %s, org_path = %s, fsize = %d" % (org, org_path, fsize)
+
+        f_name = os.path.basename(org_path)  # extract only file name
         dest_path = os.path.join(self.sysinfo.get_data_rootpath(dest),
                                  f_name)
         self.sysinfo.add_repfile(path, org, org_path, dest, dest_path)

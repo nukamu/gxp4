@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import with_statement
+
 import sqlite3
 import os, os.path
 import errno
@@ -27,14 +29,45 @@ class MogamiMetaFS(object):
 
         this function must return tuple with three elements (None with error)
         @param path path of file to get metadata
+        @return dict{dest: (dest_path, fsize)}
         """
+        ret_dict = {}
         try:
+            buf = ""
             with open(self.rootpath + path, 'r') as f:
-                (dest, data_path, fsize) = f.read().rsplit(',')
-                fsize = int(fsize)
+                while True:
+                    buf = f.readline()
+                    if len(buf) == 0:
+                        break
+                    (dest, data_path, fsize) = buf.rsplit(',')
+                    ret_dict[dest] = (data_path, fsize)
+                    fsize = int(fsize[:-1])
         except ValueError, e:
-            e = OSError('metadata is crashed (file: %s)' % (data_path))
-            e.errno = 2
+            e = OSError('metadata is crashed (file: %s)' % (path))
+            e.errno = errno.ENOENT
+            raise e
+        return ret_dict
+
+    def _get_metadata_one(self, path):
+        """read metadata from file
+
+        this function must return tuple with three elements (None with error)
+        @param path path of file to get metadata
+        """
+        ret_dict = {}
+        try:
+            buf = ""
+            with open(self.rootpath + path, 'r') as f:
+                while True:
+                    buf = f.readline()
+                    if len(buf) == 0:
+                        break
+                    (dest, data_path, fsize) = buf.rsplit(',')
+                    ret_dict[dest] = (data_path, fsize)
+                    fsize = int(fsize[:-1])
+        except ValueError, e:
+            e = OSError('metadata is crashed (file: %s)' % (path))
+            e.errno = errno.ENOENT
             raise e
         return dest, data_path, fsize
     
@@ -53,10 +86,8 @@ class MogamiMetaFS(object):
             fd = os.open(self.rootpath + path, os.O_RDWR, mode[0])
         else:
             fd = os.open(self.rootpath + path, os.O_RDWR)
-        (dest, data_path, fsize) = os.read(fd, conf.bufsize).rsplit(',')
-        fsize = int(fsize)
         os.close(fd)
-        return dest, data_path, fsize
+        return self._get_metadata_one(path)
 
     def create(self, path, flag, mode, dest, data_path):
 
@@ -66,17 +97,16 @@ class MogamiMetaFS(object):
             fd = os.open(self.rootpath + path, os.O_RDWR | os.O_CREAT, mode[0])
         else:
             fd = os.open(self.rootpath + path, os.O_RDWR | os.O_CREAT)
-        os.write(fd, "%s,%s,0" % (dest, data_path))
+        os.write(fd, "%s,%s,0\n" % (dest, data_path))
         os.close(fd)
 
     def release(self, path, fsize):
+        (dest, dest_path, org_size) = self._get_metadata_one(path)
         with open(self.rootpath + path, 'r+') as f:
-            (dest, path, org_size) = f.read().rsplit(',')
-            org_size = int(org_size)
             if fsize != org_size:
                 f.truncate(0)
                 f.seek(0)
-                f.write("%s,%s,%d" % (dest, path, fsize))
+                f.write("%s,%s,%d\n" % (dest, dest_path, fsize))
 
     def access(self, path, mode):
         return os.access(self.rootpath + path, mode)
@@ -94,7 +124,7 @@ class MogamiMetaFS(object):
         for attr in attrs:
             ret_dict[attr] = getattr(st, attr)
         if os.path.isfile(self.rootpath + path):
-            ret_dict["st_size"] = self._get_metadata(path)[2]
+            ret_dict["st_size"] = self._get_metadata_one(path)[2]
         return ret_dict
 
     def readdir(self, path):
@@ -110,8 +140,8 @@ class MogamiMetaFS(object):
         dest = None
         dest_path = None
 
-        if os.path.isfile(path):
-            (dest, dest_path, fsize) = self._get_metadata(path)
+        if os.path.isfile(self.rootpath + path):
+            (dest, dest_path, fsize) = self._get_metadata_one(path)
         os.unlink(self.rootpath + path)
 
         return dest, dest_path
@@ -142,14 +172,14 @@ class MogamiMetaFS(object):
             org_size = int(org_size)
             f.truncate(0)
             f.seek(0)
-            f.write("%s,%s,%d" % (dest, data_path, size))
+            f.write("%s,%s,%d\n" % (dest, data_path, size))
         return dest, data_path
 
     def utime(self, path, times):
         return os.utime(self.rootpath + path, times)
     
     def addrep(self, path, dest, dest_path, f_size):
-        f = open(self.rootpath + org, 'a')
+        f = open(self.rootpath + path, 'a')
         buf = "%s,%s,%d\n" % (dest, dest_path, f_size)
         f.write(buf)
         f.close()

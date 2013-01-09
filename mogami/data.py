@@ -83,10 +83,12 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 
             elif req[0] == channel.REQ_FILEREP:
                 MogamiLog.debug("** filerep **")
+                print "** filerep parms = %s" % (str(req))
                 self.filerep(req[1], req[2], req[3])
 
             elif req[0] == channel.REQ_RECVREP:
                 MogamiLog.debug("** recvrep **")
+                print "** recvrep parms = %s" % (str(req))
                 self.recvrep(req[1], req[2])
 
             else:
@@ -179,16 +181,19 @@ class MogamiDataHandler(daemons.MogamiDaemons):
                 try:
                     ans = 0
                     os.lseek(fd, wd[0], os.SEEK_SET)
-                    ret = os.write(fd, buf[write:write + wd[1]])
+                    ret = os.write(fd, buf[write_len:write_len + wd[1]])
                     write_len += ret
                     if ret != wd[1]:
                         MogamiLog.error("write length error !!")
                         break
                     MogamiLog.debug("write from offset %d (result %d)" %
                                     (wd[0], ret))
-                except Exception, e:
+                except OSError, e:
                     ans = e.errno
                     break
+                #except Exception, e:
+                #    ans = -1
+                #    break
 
             self.c_channel.flush_answer(ans, write_len)
 
@@ -232,6 +237,7 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 
         MogamiLog.debug("finish send data of file")
         ans = to_channel.recvrep_getanswer()
+        print "finished replication (ans: %d)" % (ans)
         if ans == 0:
             self.c_channel.filerep_answer(ans, f_size)
         to_channel.finalize()
@@ -247,13 +253,13 @@ class MogamiDataHandler(daemons.MogamiDaemons):
                     buf = self.c_channel.recvall(f_size - write_size)
                 else:
                     buf = self.c_channel.recvall(conf.blsize)
-                    f.write(buf)
-                    write_size += len(buf)
+                f.write(buf)
+                write_size += len(buf)
             f.close()
             ans = 0
         except Exception:
             ans = -1
-        self.c_channel.recvrep_answer(ans, f_size)
+        self.c_channel.recvrep_answer(ans)
 
 
 class MogamiData(object):

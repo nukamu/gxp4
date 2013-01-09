@@ -53,7 +53,7 @@ REQ_RAMFILEDEL = 28
 REQ_FILEDEL = 29
 REQ_FILEASK = 30
 REQ_FILEREP = 31
-REQ_RECVREPsend = 32
+REQ_RECVREP = 32
 
 # requests related to scheduler
 REQ_ADDAP = 33
@@ -379,6 +379,10 @@ class MogamiChanneltoMeta(MogamiChannel):
         with self.lock:
             self.send_msg((REQ_DATADEL, ))
 
+    def filerep_req(self, path, new_dest):
+        with self.lock:
+            self.send_msg((REQ_FILEREP, path, new_dest))
+        
 
 class MogamiChanneltoData(MogamiChannel):
     def __init__(self, dest=None):
@@ -589,6 +593,9 @@ class MogamiChannelforData(MogamiChannelforServer):
         with self.lock:
             self.send_msg((ans, size))
 
+    def recvrep_answer(self, ans):
+        with self.lock:
+            self.send_msg(ans)
 
 class MogamiChanneltoTellAP(MogamiChannel):
     def __init__(self, pipepath):
