@@ -143,7 +143,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
                 if ans == 0:
                     self.meta_rep.addrep(path, dest, dest_path, f_size)
                     ## add new location to metadata 
-                   print "*** add replication ***"
+                    print "*** add replication ***"
                 self.sock_list.remove(sock_id)
                 del self.sock_dict[sock_id]
 
