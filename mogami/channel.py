@@ -16,7 +16,7 @@ import cPickle
 from system import MogamiLog
 import conf
 
-# requests related to metadata
+## requests related to metadata
 REQ_GETATTR = 0
 REQ_READDIR = 1
 REQ_ACCESS = 2
@@ -34,7 +34,7 @@ REQ_TRUNCATE = 13
 REQ_UTIME = 14
 REQ_FSYNC = 15
 
-# requests related to files
+## requests related to files
 REQ_OPEN = 16
 REQ_CREATE = 17
 REQ_READ = 18
@@ -44,22 +44,23 @@ REQ_RELEASE = 21
 REQ_FGETATTR = 22
 REQ_FTRUNCATE = 23
 
-# requests related to Mogami's system
-REQ_CLOSE = 24
-REQ_DATAADD = 25
-REQ_DATADEL = 26
-REQ_RAMFILEADD = 27
-REQ_RAMFILEDEL = 28
-REQ_FILEDEL = 29
-REQ_FILEASK = 30
-REQ_FILEREP = 31
-REQ_RECVREP = 32
+## requests related to Mogami's system
+REQ_CLOSE = 24       # connection close
+REQ_DATAADD = 25     # data server getting in
+REQ_DATADEL = 26     # data server droping out
+REQ_RAMFILEADD = 27  # 
+REQ_RAMFILEDEL = 28  #
+REQ_FILEDEL = 29     # 
+REQ_FILEASK = 30     # for file location
+REQ_FILEREP = 31     # for replication
+REQ_RECVREP = 32     # recieving replicated data
+REQ_SCATTER = 33     # data scattering
 
-# requests related to scheduler
-REQ_ADDAP = 33
-REQ_SCHEDULE = 34
+## requests related to scheduler
+REQ_ADDAP = 34
+REQ_SCHEDULE = 35
 
-# channel's type
+## channel's type
 TYPE_TCP = 0
 TYPE_UNIX = 1
 

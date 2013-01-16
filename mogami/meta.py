@@ -557,18 +557,17 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         dest_dict = {}
         for path in path_list:
             try:
-                f = open(self.rootpath + path, 'r')
-                buf = f.read()
-                l = buf.rsplit(',')
-                dest_dict[path] = l[0]
+                file_dict = self.meta_rep._get_metadata(path)
+                for dest in file_dict.iterkeys():                    
+                    if path not in dest_dict:
+                        dest_dict[path] = []
+                    dest_dict[path].append(dest)
             except Exception:
                 dest_dict[path] = None
         self.c_channel.fileask_answer(dest_dict)
 
     def file_rep(self, path, dest):
-        print "path = %s, dest = %s" % (path, dest)
         (org, org_path, fsize) = self.meta_rep._get_metadata_one(path)
-        print "org = %s, org_path = %s, fsize = %d" % (org, org_path, fsize)
 
         f_name = os.path.basename(org_path)  # extract only file name
         dest_path = os.path.join(self.sysinfo.get_data_rootpath(dest),

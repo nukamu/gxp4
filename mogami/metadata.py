@@ -49,7 +49,7 @@ class MogamiMetaFS(object):
         return ret_dict
 
     def _get_metadata_one(self, path):
-        """read metadata from file
+        """read metadata from file and return one randomly
 
         this function must return tuple with three elements (None with error)
         @param path path of file to get metadata
@@ -71,12 +71,13 @@ class MogamiMetaFS(object):
             raise e
         return dest, data_path, fsize
     
-    def open(self, path, flag, mode):
+    def open(self, path, flag, mode, affinity=None):
         """return infomation required in open().
 
         @param path
         @param flag
         @param mode
+        @param affinity
         @return (dest: file location ip,
         data_path: content path on data server, fsize: file size)
         """
@@ -87,8 +88,17 @@ class MogamiMetaFS(object):
         else:
             fd = os.open(self.rootpath + path, os.O_RDWR)
         os.close(fd)
-        return self._get_metadata_one(path)
 
+        if affinity == None:
+            return self._get_metadata_one(path)
+            
+        dest_dict = self._get_metadata(path)
+        
+        if affinity in dest_dict:
+            return (affinity, ) + dest_dict[affinity]
+        (k, v) = dest_dict.popitem()
+        return (k, ) + v
+    
     def create(self, path, flag, mode, dest, data_path):
 
         # once check if the file can be opened with flag
