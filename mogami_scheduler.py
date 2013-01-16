@@ -252,7 +252,7 @@ class MogamiJobScheduler():
         # choose best node for each run
         best_node_dict = {}
         for cmd in cmds:
-            if cmd[0] not in self.feature_dict:
+            if cmd[0] not in self.feature_dict:  # eliminate cmd[0] which doesn't match any file access record
                 best_node_dict[runs_dict[cmd]] = None
                 continue
             expected_files_dict = file_from_feature(
@@ -260,17 +260,18 @@ class MogamiJobScheduler():
             load_dict = {}  # expected file read size of each node
             for filename, load in expected_files_dict.iteritems():
                 try:
-                    dest = file_location_dict[filename]
+                    dest_list = file_location_dict[filename]
                 except KeyError, e:
                     best_node_dict[runs_dict[cmd]] = None
                     continue
-                if dest == None:
+                if dest_list == None or len(dest_list) == 0:
                     best_node_dict[runs_dict[cmd]] = None
                     continue
-            if dest in load_dict:
-                load_dict[dest] += load
-            else:
-                load_dict[dest] = load
+                for dest in dest_list:
+                    if dest in load_dict:
+                        load_dict[dest] += load
+                    else:
+                        load_dict[dest] = load
             ordered_men_list = []
             for dest, load in load_dict.iteritems():
                 ordered_men_list.append((load, dest))
