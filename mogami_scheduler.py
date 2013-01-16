@@ -199,6 +199,10 @@ def parse_men(men):
     men_dict = {}
     for man in men:
         name = man.name.split('-')[0]
+        if name[1] == 'o':  # hongo
+            name += '.logos.ic.i.u-tokyo.ac.jp'
+        elif name[1] == 'y':  # kyoto
+            name += '.kyoto.intrigger.jp'
         ip = socket.gethostbyname(name)
         man_ip_list.append(ip)
         men_dict[ip] = man
