@@ -2521,8 +2521,8 @@ class job_scheduler(gxpc.cmd_interpreter):
         gxpc.cmd_interpreter.__init__(self)
 
         # miki-comment: temporary 
-        feature_file_path = "/tmp/miki/feature.dat"
-        mds_host = "hongo200"
+        feature_file_path = "/home/mikity/feature_montage.dat"
+        mds_host = "huscs000"
         
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler(
             feature_file_path, mds_host)
@@ -3431,6 +3431,11 @@ class job_scheduler(gxpc.cmd_interpreter):
         self.final_status = self.wkg.determine_final_status()
         self.record_everything(1)
         exit_status,term_sig = self.final_status
+
+        if self.logfp:
+            self.LOG("%s\n"
+                     % self.mogami_scheduler.get_times_str())
+        
         if exit_status is None: return 1
         return exit_status
 

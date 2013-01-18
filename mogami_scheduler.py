@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import socket,cPickle,os.path,cStringIO
+import socket,cPickle,os.path,cStringIO,time
 
 # TODO: this should be retrieved from system automatically 
 MOGAMI_MOUNT = "/data/local2/mikity/mnt"
@@ -190,14 +190,25 @@ def parse_runs(runs):
         cmd = cmd.lstrip()
         # extract the first argument of cmd
         args_list = cmd.rsplit(" ")
+        while True:
+            try:
+                args_list.remove('')
+            except Exception:
+                break
         cmd_list.append(tuple(args_list))
         run_dict[tuple(args_list)] = run
     return (cmd_list, run_dict)
 
-def parse_men(men):
+def parse_men(men, men_ip_dict):
     man_ip_list = []
     men_dict = {}
+    
     for man in men:
+        if man in men_ip_dict:
+            ip = men_ip_dict[man]
+            man_ip_list.append(ip)
+            men_dict[ip] = man
+            continue
         name = man.name.split('-')[0]
         if name[1] == 'o':  # hongo
             name += '.logos.ic.i.u-tokyo.ac.jp'
@@ -206,6 +217,7 @@ def parse_men(men):
         ip = socket.gethostbyname(name)
         man_ip_list.append(ip)
         men_dict[ip] = man
+        men_ip_dict[man] = ip
     return (man_ip_list, men_dict)
 
 
@@ -215,7 +227,18 @@ class MogamiJobScheduler():
     """
     def __init__(self, feature_file_path, mds_host):
         self.active = True
-        self.feature_dict = {}
+
+        self.men_ip_dict = {}
+
+        ## for profile
+        self.init_t = 0.0
+        self.predict_t = 0.0
+        self.choose_t = 0.0
+        self.check_t = 0.0
+        self.all_t = 0.0
+
+        self.log = ''
+
 
         try:
             # insert command data (if possible)
@@ -234,14 +257,19 @@ class MogamiJobScheduler():
             self.active = False
 
     def choose_proper_node(self, runs, men):
+        self.log = ''
         match_list = []   # return list
+
+        start_t = time.time()
 
         # prepare for process
         (cmds, runs_dict) = parse_runs(runs)
-        (candidates, men_dict) = parse_men(men)
+        (candidates, men_dict) = parse_men(men, self.men_ip_dict)
         men_resource_dict = {}
         for man in men:
             men_resource_dict[man] = man.capacity_left['cpu']
+
+        init_end_t = time.time()
 
         # get locations of files
         files_to_ask = []
@@ -253,39 +281,40 @@ class MogamiJobScheduler():
         files_to_ask = list(set(files_to_ask))  # remove duplicative elements
         file_location_dict = self.m_channel.req_fileask(files_to_ask)
 
+        predict_end_t = time.time()
+
         # choose best node for each run
         best_node_dict = {}
         for cmd in cmds:
-            if cmd[0] not in self.feature_dict:  # eliminate cmd[0] which doesn't match any file access record
-                best_node_dict[runs_dict[cmd]] = None
-                continue
             expected_files_dict = file_from_feature(
-                cmd, self.feature_dict[cmd[0]][0][0], runs_dict[cmd].work.dirs[0])
-            load_dict = {}  # expected file read size of each node
+                cmd, self.ap_dict,self.arg_job_dict,
+                runs_dict[cmd].work.dirs[0])
+            load_dict = {}  # value: expected file read size of each node
             for filename, load in expected_files_dict.iteritems():
                 try:
-                    dest_list = file_location_dict[filename]
+                    dest = file_location_dict[filename]
                 except KeyError, e:
-                    best_node_dict[runs_dict[cmd]] = None
                     continue
-                if dest_list == None or len(dest_list) == 0:
-                    best_node_dict[runs_dict[cmd]] = None
+                if dest == None:
                     continue
-                for dest in dest_list:
-                    if dest in load_dict:
-                        load_dict[dest] += load
-                    else:
-                        load_dict[dest] = load
+                if dest in load_dict:
+                    load_dict[dest] += load
+                else:
+                    load_dict[dest] = load
+                    
             ordered_men_list = []
             for dest, load in load_dict.iteritems():
                 ordered_men_list.append((load, dest))
             ordered_men_list.sort()
-            for man in ordered_men_list:
-                if man in men:
-                    best_node_dict[runs_dict[cmd]] = man
+            ordered_men_list.reverse()
+            for (load, man) in ordered_men_list:
+                if man in candidates:
+                    best_node_dict[runs_dict[cmd]] = men_dict[man]
                     break
             else:
                 best_node_dict[runs_dict[cmd]] = None
+
+        choose_end_t = time.time()
 
         # check resource and make matches run and man
         left_run = []
@@ -306,8 +335,25 @@ class MogamiJobScheduler():
                     break
             else:
                 break
+
+        end_t = time.time()
+
+        # add time
+        self.init_t += init_end_t - start_t
+        self.predict_t += predict_end_t - init_end_t
+        self.choose_t += choose_end_t - predict_end_t
+        self.check_t += end_t - choose_end_t
+        self.all_t += end_t - start_t
+            
         return match_list
 
+    def get_former_log(self, ):
+        buf = "++ match ++ %s" % (self.log, )
+
+    def get_times_str(self, ):
+        buf = "++ scheduling time ++ [init]%f [predict]%f [choose]%f [check]%f [all]%f" % (
+            self.init_t, self.predict_t, self.choose_t, self.check_t, self.all_t)
+        return buf
 
 if __name__ == '__main__':
     import doctest
