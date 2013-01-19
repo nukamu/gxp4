@@ -112,8 +112,8 @@ class MogamiMetaFS(object):
 
     def release(self, path, fsize):
         (dest, dest_path, org_size) = self._get_metadata_one(path)
-        with open(self.rootpath + path, 'r+') as f:
-            if fsize != org_size:
+        if fsize != org_size:
+            with open(self.rootpath + path, 'r+') as f:
                 f.truncate(0)
                 f.seek(0)
                 f.write("%s,%s,%d\n" % (dest, dest_path, fsize))
