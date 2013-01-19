@@ -230,7 +230,7 @@ class MogamiJobScheduler():
 
         self.men_ip_dict = {}
 
-        ## for profile
+        # for profile
         self.init_t = 0.0
         self.predict_t = 0.0
         self.choose_t = 0.0
@@ -285,6 +285,7 @@ class MogamiJobScheduler():
 
         # choose best node for each run
         best_node_dict = {}
+        
         for cmd in cmds:
             expected_files_dict = file_from_feature(
                 cmd, self.ap_dict,self.arg_job_dict,
@@ -293,6 +294,8 @@ class MogamiJobScheduler():
             for filename, load in expected_files_dict.iteritems():
                 try:
                     dest = file_location_dict[filename]
+                    self.log += '%s is expected to read: filename = %s, dest = %s, size = %d\n' % (
+                        cmd[0], filename, dest, load)
                 except KeyError, e:
                     continue
                 if dest == None:
@@ -327,6 +330,7 @@ class MogamiJobScheduler():
                 men_resource_dict[man] -= run.work.requirement['cpu']
             else:
                 left_run.append(run)
+
         for run in left_run:
             for man in men:
                 if men_resource_dict[man] >= run.work.requirement['cpu']:
@@ -334,7 +338,8 @@ class MogamiJobScheduler():
                     men_resource_dict[man] -= run.work.requirement['cpu']
                     break
             else:
-                break
+                match_list.append((run, men[0]))
+                men_resource_dict[man] -= run.work.requirement['cpu']
 
         end_t = time.time()
 
@@ -349,6 +354,7 @@ class MogamiJobScheduler():
 
     def get_former_log(self, ):
         buf = "++ match ++ %s" % (self.log, )
+        return buf
 
     def get_times_str(self, ):
         buf = "++ scheduling time ++ [init]%f [predict]%f [choose]%f [check]%f [all]%f" % (

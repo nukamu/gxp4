@@ -3052,9 +3052,15 @@ class job_scheduler(gxpc.cmd_interpreter):
                 # get a man and a run from the head of the queues
                 match_list = [(self.runs_todo[0], self.men_free[0])]
 
+            if self.logfp:
+                self.LOG("%s" % (self.mogami_scheduler.get_former_log()))
+                
             for run, man in match_list:
-                run_idx = self.runs_todo.index(run)
-                man_idx = self.men_free.index(man)
+                try:
+                    run_idx = self.runs_todo.index(run)
+                    man_idx = self.men_free.index(man)
+                except Exception:
+                    continue
                 # see if this man can exec this run by checking 
                 # the resource
                 if self.logfp:
