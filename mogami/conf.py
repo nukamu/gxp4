@@ -28,6 +28,9 @@ meta_loglevel=logging.INFO
 data_loglevel=logging.INFO
 
 # Get access pattern or not
-ap=True
+ap=False
 
 meta_type='fs'   # should be 'fs' or 'db'
+
+# configure for some optimizations
+local_request=True

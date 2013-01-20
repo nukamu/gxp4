@@ -33,7 +33,7 @@ file_size_dict = {}
 channels = channel.MogamiChannelRepository()
 file_access_dict = {}
 file_access_lock = threading.Lock()
-
+local_ch = channel.MogamiChanneltoData()
 
 class MogamiFileAccessHistory(object):
     def __init__(self, ):
@@ -298,20 +298,33 @@ class MogamiFS(Fuse):
             self.flag = flag
             self.mode = mode
 
-            (ans, dest, data_path, self.fsize,
-             self.created) = m_channel.open_req(path, flag, *mode)
+            dest = None
 
-            if ans != 0:  # error on metadata server
-                e = IOError()
-                e.errno = ans
-                raise e
+            if conf.local_request is True:
+                try:
+                    (ans, data_path, fsize) = local_ch.filereq_req(path)
+                    if ans == 0:  # exists on local
+                        dest = 'self'
+                        self.created = False
+                        self.fsize = fsize
+                except Exception:
+                    pass
+
+            if dest == None:
+                # request for metadata server
+                (ans, dest, data_path, self.fsize,
+                 self.created) = m_channel.open_req(path, flag, *mode)
+                if ans != 0:  # error on metadata server
+                    e = IOError()
+                    e.errno = ans
+                    raise e
 
             if dest == 'self':
                 self.mogami_file = filemanager.MogamiLocalFile(
-                    self.fsize, data_path, flag, *mode)
+                    self.fsize, local_ch, path, data_path, flag, *mode)
             else:
                 self.mogami_file = filemanager.MogamiRemoteFile(
-                    self.fsize, dest, data_path, flag, *mode)
+                    self.fsize, dest, path, data_path, flag, *mode)
                 ans = self.mogami_file.create_connections(channels)
                 if ans != 0:
                     MogamiLog.error("open error !!")

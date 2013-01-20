@@ -46,6 +46,10 @@ class MogamiMetaFS(object):
             e = OSError('metadata is crashed (file: %s)' % (path))
             e.errno = errno.ENOENT
             raise e
+        if len(ret_dict) < 1:
+            e = OSError('metadata is crashed (file: %s)' % (path))
+            e.errno = errno.ENOENT
+            raise e            
         return ret_dict
 
     def _get_metadata_one(self, path):
@@ -55,6 +59,9 @@ class MogamiMetaFS(object):
         @param path path of file to get metadata
         """
         ret_dict = {}
+        dest = None
+        data_path = None
+        fsize = None
         try:
             buf = ""
             with open(self.rootpath + path, 'r') as f:
@@ -66,6 +73,10 @@ class MogamiMetaFS(object):
                     ret_dict[dest] = (data_path, fsize)
                     fsize = int(fsize[:-1])
         except ValueError, e:
+            e = OSError('metadata is crashed (file: %s)' % (path))
+            e.errno = errno.ENOENT
+            raise e
+        if dest == None:
             e = OSError('metadata is crashed (file: %s)' % (path))
             e.errno = errno.ENOENT
             raise e
@@ -117,6 +128,7 @@ class MogamiMetaFS(object):
                 f.truncate(0)
                 f.seek(0)
                 f.write("%s,%s,%d\n" % (dest, dest_path, fsize))
+                os.fsync((f.fileno()))
 
     def access(self, path, mode):
         return os.access(self.rootpath + path, mode)
@@ -171,15 +183,21 @@ class MogamiMetaFS(object):
     def readlink(self, path):
         return os.readlink(self.rootpath + path)
 
-    def truncate(self, path, size):
+    def truncate(self, path, size, affinity=None):
         """
         @param path path of file
         @param size truncate size
         @return (dest: file location, data_path: full path on data server)
         """
+        dest_dict = self._get_metadata(path)
+        if affinity != None and affinity in dest_dict:
+            dest = affinity
+            (data_path, org_size) = (dest_dict[affinity])
+        else:
+            (dest, v) = dest_dict.popitem()
+            (data_path, org_size) = v
+
         with open(self.rootpath + path, 'r+') as f:
-            (dest, data_path, org_size) = f.read().rsplit(',')
-            org_size = int(org_size)
             f.truncate(0)
             f.seek(0)
             f.write("%s,%s,%d\n" % (dest, data_path, size))

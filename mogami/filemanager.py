@@ -193,7 +193,7 @@ class MogamiRamFile(object):
 class MogamiRemoteFile(MogamiFile):
     """Class for a file located at remote node.
     """
-    def __init__(self, fsize, dest, data_path, flag, *mode):
+    def __init__(self, fsize, dest, mogami_path, data_path, flag, *mode):
         """initializer. This method is called by open().
 
         @param fsize file size
@@ -209,6 +209,7 @@ class MogamiRemoteFile(MogamiFile):
         self.data_path = data_path
         self.flag = flag
         self.mode = mode
+        self.mogami_path = mogami_path
 
         # calculation of the number of blocks
         self.blnum = self.fsize / conf.blsize
@@ -243,7 +244,7 @@ class MogamiRemoteFile(MogamiFile):
         # send a request to data server for open
         start_t = time.time()
         (ans, self.datafd, open_t) = self.d_channel.open_req(
-            self.data_path, self.flag, *self.mode)
+            self.mogami_path, self.data_path, self.flag, *self.mode)
         end_t = time.time()
         if ans != 0:  # failed...with errno
             self.finalize()
@@ -347,7 +348,8 @@ class MogamiRemoteFile(MogamiFile):
 
             MogamiLog.debug("flush: fd=%d, listlen=%d, datalen=%d" %
                             (self.datafd, len(self.w_list), len(send_data)))
-            ans = self.d_channel.flush_req(self.datafd, self.w_list, send_data)
+            (ans, w_len) = self.d_channel.flush_req(self.datafd,
+                                                    self.w_list, send_data)
             self.w_len = 0
             self.w_list = []
             self.w_data = cStringIO.StringIO()
@@ -428,7 +430,7 @@ class MogamiRemoteFile(MogamiFile):
 class MogamiLocalFile(MogamiFile):
     """Class for a file located at local storage
     """
-    def __init__(self, fsize, data_path, flag, *mode):
+    def __init__(self, fsize, local_ch, mogami_path, data_path, flag, *mode):
         MogamiFile.__init__(self, fsize)
         self.remote = False
         
@@ -438,9 +440,21 @@ class MogamiLocalFile(MogamiFile):
         if flag | os.O_APPEND:
             m = m.replace('w', 'a', 1)
 
+        created = True
+        
+        if os.access(data_path, os.F_OK) == True:
+            created = False
+
         # open the file actually
         self.file = os.fdopen(os.open(data_path, flag, *mode), m)
         self.lock = threading.Lock()
+
+        # add to data server's metadata cache
+        if created == True:
+            if local_ch.connected == False:
+                local_ch.connect('127.0.0.1')  # to local
+            local_ch.fileadd_req(mogami_path, data_path)
+                
 
     def read(self, length, offset):
         with self.lock:
