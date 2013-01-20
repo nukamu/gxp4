@@ -6,7 +6,7 @@ import subprocess
 
 import channel
 import time
-
+import socket
 
 def replication_request(meta_addr, path, new_dest):
     ch = channel.MogamiChanneltoMeta(meta_addr)
@@ -16,4 +16,5 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         sys.exit("Usage: %s [meta_addr] [path] [new_dest]")
 
-    replication_request(sys.argv[1], sys.argv[2], sys.argv[3])
+    replication_request(sys.argv[1], sys.argv[2],
+                        socket.gethostbyname(sys.argv[3]))
