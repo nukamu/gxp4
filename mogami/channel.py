@@ -55,10 +55,12 @@ REQ_FILEASK = 30     # for file location
 REQ_FILEREP = 31     # for replication
 REQ_RECVREP = 32     # recieving replicated data
 REQ_SCATTER = 33     # data scattering
+REQ_FILEREQ = 34     # file request to local data server
+REQ_FILEADD = 35
 
 ## requests related to scheduler
-REQ_ADDAP = 34
-REQ_SCHEDULE = 35
+REQ_ADDAP = 36
+REQ_SCHEDULE = 37
 
 ## channel's type
 TYPE_TCP = 0
@@ -380,16 +382,18 @@ class MogamiChanneltoMeta(MogamiChannel):
         with self.lock:
             self.send_msg((REQ_DATADEL, ))
 
-    def filerep_req(self, path, new_dest):
+    def filerep_req(self, mogami_path, data_path, new_dest):
         with self.lock:
-            self.send_msg((REQ_FILEREP, path, new_dest))
+            self.send_msg((REQ_FILEREP, mogami_path, data_path, new_dest))
         
 
 class MogamiChanneltoData(MogamiChannel):
     def __init__(self, dest=None):
         MogamiChannel.__init__(self)
+        self.connected = False
         if dest != None:
             MogamiChannel.connect(self, dest, conf.dataport)
+            self.connected = True
 
     def connect(self, data_ip):
         """connect to data server.
@@ -397,10 +401,11 @@ class MogamiChanneltoData(MogamiChannel):
         @param data_ip ip address of data server to connect
         """
         MogamiChannel.connect(self, data_ip, conf.dataport)
+        self.connected = True
 
-    def open_req(self, datapath, flags, *mode):
+    def open_req(self, mogamipath, datapath, flags, *mode):
         with self.lock:
-            self.send_msg((REQ_OPEN, datapath, flags, mode))
+            self.send_msg((REQ_OPEN, mogamipath, datapath, flags, mode))
             ans = self.recv_msg()
         # (0 or errno, datafd, time to open)
         return ans
@@ -435,6 +440,7 @@ class MogamiChanneltoData(MogamiChannel):
             self.sendall(w_list_pickled)
             self.sendall(w_data)
             ans = self.recv_msg()
+            # (ans, write_len)
         return ans
 
     def recv_bldata(self, ):
@@ -466,15 +472,26 @@ class MogamiChanneltoData(MogamiChannel):
             ans = self.recv_msg()
         return ans
 
-    def filerep_req(self, org_path, dest, dest_path):
+    def filerep_req(self, mogami_path, org_path, dest, dest_path):
         """supposed to be used by metadata server.
         """
         with self.lock:
-            self.send_msg((REQ_FILEREP, org_path, dest, dest_path))
+            self.send_msg((REQ_FILEREP, mogami_path, org_path, dest, dest_path))
 
-    def recvrep_req(self, dest_path, f_size):
+    def recvrep_req(self, mogami_path, dest_path, f_size):
         with self.lock:
-            self.send_msg((REQ_RECVREP, dest_path, f_size))
+            self.send_msg((REQ_RECVREP, mogami_path, dest_path, f_size))
+    
+    def filereq_req(self, path):
+        with self.lock:
+            self.send_msg((REQ_FILEREQ, path))
+            ans = self.recv_msg()
+        # (0 or -1, data_path, fsize)
+        return ans
+
+    def fileadd_req(self, mogami_path, data_path):
+        with self.lock:
+            self.send_msg((REQ_FILEADD, mogami_path, data_path))
 
     def recvrep_getanswer(self, ):
         with self.lock:
@@ -597,6 +614,10 @@ class MogamiChannelforData(MogamiChannelforServer):
     def recvrep_answer(self, ans):
         with self.lock:
             self.send_msg(ans)
+
+    def filereq_answer(self, ans, data_path, fsize):
+        with self.lock:
+            self.send_msg(ans, data_path, fsize)
 
 class MogamiChanneltoTellAP(MogamiChannel):
     def __init__(self, pipepath):
