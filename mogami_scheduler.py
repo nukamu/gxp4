@@ -293,17 +293,18 @@ class MogamiJobScheduler():
             load_dict = {}  # value: expected file read size of each node
             for filename, load in expected_files_dict.iteritems():
                 try:
-                    dest = file_location_dict[filename]
-                    self.log += '%s is expected to read: filename = %s, dest = %s, size = %d\n' % (
-                        cmd[0], filename, dest, load)
+                    dest_list = file_location_dict[filename]
                 except KeyError, e:
                     continue
-                if dest == None:
+                if dest_list == None:
                     continue
-                if dest in load_dict:
-                    load_dict[dest] += load
-                else:
-                    load_dict[dest] = load
+                for dest in dest_list:
+                    self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
+                        cmd[0], filename, dest, load)
+                    if dest in load_dict:
+                        load_dict[dest] += load
+                    else:
+                        load_dict[dest] = load
                     
             ordered_men_list = []
             for dest, load in load_dict.iteritems():
@@ -328,6 +329,7 @@ class MogamiJobScheduler():
             if men_resource_dict[man] >= run.work.requirement['cpu']:
                 match_list.append((run, man))
                 men_resource_dict[man] -= run.work.requirement['cpu']
+                self.log += 'Choose Proper Node!! (%s)' % (man.name)
             else:
                 left_run.append(run)
 

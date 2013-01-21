@@ -40,8 +40,8 @@ class MogamiMetaFS(object):
                     if len(buf) == 0:
                         break
                     (dest, data_path, fsize) = buf.rsplit(',')
-                    ret_dict[dest] = (data_path, fsize)
                     fsize = int(fsize[:-1])
+                    ret_dict[dest] = (data_path, fsize)
         except ValueError, e:
             e = OSError('metadata is crashed (file: %s)' % (path))
             e.errno = errno.ENOENT
@@ -70,8 +70,8 @@ class MogamiMetaFS(object):
                     if len(buf) == 0:
                         break
                     (dest, data_path, fsize) = buf.rsplit(',')
-                    ret_dict[dest] = (data_path, fsize)
                     fsize = int(fsize[:-1])
+                    ret_dict[dest] = (data_path, fsize)
         except ValueError, e:
             e = OSError('metadata is crashed (file: %s)' % (path))
             e.errno = errno.ENOENT
@@ -102,9 +102,9 @@ class MogamiMetaFS(object):
 
         if affinity == None:
             return self._get_metadata_one(path)
-            
+
         dest_dict = self._get_metadata(path)
-        
+
         if affinity in dest_dict:
             return (affinity, ) + dest_dict[affinity]
         (k, v) = dest_dict.popitem()

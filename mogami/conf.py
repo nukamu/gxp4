@@ -5,7 +5,7 @@ metaport=15806
 dataport=15807
 
 # Define the directory for log
-log_dir="/home/miki/git/gxp4/log"
+log_dir="/data/local2/mikity"
 
 # Define buffer size and block size in mogami
 bufsize=1024
@@ -33,4 +33,4 @@ ap=False
 meta_type='fs'   # should be 'fs' or 'db'
 
 # configure for some optimizations
-local_request=True
+local_request=False

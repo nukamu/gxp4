@@ -382,9 +382,9 @@ class MogamiChanneltoMeta(MogamiChannel):
         with self.lock:
             self.send_msg((REQ_DATADEL, ))
 
-    def filerep_req(self, mogami_path, data_path, new_dest):
+    def filerep_req(self, mogami_path, new_dest):
         with self.lock:
-            self.send_msg((REQ_FILEREP, mogami_path, data_path, new_dest))
+            self.send_msg((REQ_FILEREP, mogami_path, new_dest))
         
 
 class MogamiChanneltoData(MogamiChannel):
@@ -617,7 +617,7 @@ class MogamiChannelforData(MogamiChannelforServer):
 
     def filereq_answer(self, ans, data_path, fsize):
         with self.lock:
-            self.send_msg(ans, data_path, fsize)
+            self.send_msg((ans, data_path, fsize))
 
 class MogamiChanneltoTellAP(MogamiChannel):
     def __init__(self, pipepath):

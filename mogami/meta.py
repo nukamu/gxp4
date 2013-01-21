@@ -144,7 +144,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
                 if ans == 0:
                     self.meta_rep.addrep(path, dest, dest_path, f_size)
                     # add new location to metadata 
-                    print "*** add replication ***"
+                    #print "*** add replication ***"
                 self.sock_list.remove(sock_id)
                 del self.sock_dict[sock_id]
 
@@ -160,7 +160,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
         MogamiLog.debug("file replication request was sent (%s: %s -> %s: %s)" %
                         (org, org_path, dest, dest_path))
         c_channel = channel.MogamiChanneltoData(org)
-        c_channel.filerep_req(org_path, dest, dest_path)
+        c_channel.filerep_req(path, org_path, dest, dest_path)
 
         sock_id = c_channel.sock.fileno()
         self.sock_list.append(sock_id)
@@ -478,8 +478,9 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             # When the required file exist...
             try:
                 MogamiLog.debug("!!find the file %s w/ %o" % (path, flag))
+                affinity = self.c_channel.getpeername()
                 (dest, data_path, fsize) = self.meta_rep.open(
-                    path, flag, mode)
+                    path, flag, mode, affinity)
 
                 # create data to send
                 ans = 0

@@ -299,12 +299,14 @@ class MogamiFS(Fuse):
             self.mode = mode
 
             dest = None
+            self.local = False
 
             if conf.local_request is True:
                 try:
                     (ans, data_path, fsize) = local_ch.filereq_req(path)
                     if ans == 0:  # exists on local
                         dest = 'self'
+                        self.local = True
                         self.created = False
                         self.fsize = fsize
                 except Exception:
@@ -320,9 +322,11 @@ class MogamiFS(Fuse):
                     raise e
 
             if dest == 'self':
+                self.local = True
                 self.mogami_file = filemanager.MogamiLocalFile(
                     self.fsize, local_ch, path, data_path, flag, *mode)
             else:
+                self.local = False
                 self.mogami_file = filemanager.MogamiRemoteFile(
                     self.fsize, dest, path, data_path, flag, *mode)
                 ans = self.mogami_file.create_connections(channels)
@@ -353,6 +357,15 @@ class MogamiFS(Fuse):
                     path, cmd_args, pid)
                 end_t = time.time()
                 self.took_time = end_t - start_t
+            else:
+                id_list = self.GetContext()
+                pid = id_list['pid']
+                f = open(os.path.join("/proc", str(pid), "cmdline"), 'r')
+                self.cmd = f.read().rstrip('\x00').replace('\x00', ' ')
+
+            self.read_size = 0
+            self.write_size = 0
+
 
         def read(self, length, offset):
             """read handler.
@@ -374,6 +387,8 @@ class MogamiFS(Fuse):
                                                 len(ret_buf))
                 
                 self.took_time += end_t - start_t
+            self.read_size += len(ret_buf)
+
             return ret_buf
 
         def write(self, buf, offset):
@@ -398,6 +413,7 @@ class MogamiFS(Fuse):
             if conf.ap is True:
                 end_t = time.time()
                 self.took_time += end_t - start_t
+            self.write_size += ret_value
             return ret_value
 
         def flush(self, ):
@@ -428,6 +444,8 @@ class MogamiFS(Fuse):
             if conf.ap is True:
                 start_t = time.time()
             MogamiLog.debug("** release **")
+            MogamiLog.critical("** file log ** cmd:%s,local:%s,read:%s,write:%s" % (
+                self.cmd, str(self.local), str(self.read_size), str(self.write_size)))
 
             fsize = self.mogami_file.release(flags)
             ans = m_channel.release_req(self.path, fsize)

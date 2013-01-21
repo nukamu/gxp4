@@ -2522,12 +2522,14 @@ class job_scheduler(gxpc.cmd_interpreter):
 
         # miki-comment: temporary 
         feature_file_path = "/home/mikity/feature_montage.dat"
-        mds_host = "huscs000"
+        mds_host = "tsukuba100"
         
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler(
             feature_file_path, mds_host)
         if self.mogami_scheduler.active != True:
             Es("warning: could not optimize job scheduling\n")
+            if self.logfp:
+                self.LOG("** warning: could not optimize job scheduling ** \n")
         self.calc_time = 0.0
 
     def ensure_directory(self, dire):
@@ -3052,8 +3054,8 @@ class job_scheduler(gxpc.cmd_interpreter):
                 # get a man and a run from the head of the queues
                 match_list = [(self.runs_todo[0], self.men_free[0])]
 
-            if self.logfp:
-                self.LOG("%s" % (self.mogami_scheduler.get_former_log()))
+            #if self.logfp:
+            #    self.LOG("%s" % (self.mogami_scheduler.get_former_log()))
                 
             for run, man in match_list:
                 try:

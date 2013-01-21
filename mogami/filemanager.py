@@ -210,7 +210,7 @@ class MogamiRemoteFile(MogamiFile):
         self.flag = flag
         self.mode = mode
         self.mogami_path = mogami_path
-
+        
         # calculation of the number of blocks
         self.blnum = self.fsize / conf.blsize
         if self.fsize % conf.blsize != 0:
@@ -449,11 +449,12 @@ class MogamiLocalFile(MogamiFile):
         self.file = os.fdopen(os.open(data_path, flag, *mode), m)
         self.lock = threading.Lock()
 
-        # add to data server's metadata cache
-        if created == True:
-            if local_ch.connected == False:
-                local_ch.connect('127.0.0.1')  # to local
-            local_ch.fileadd_req(mogami_path, data_path)
+        if conf.local_request is True:
+            # add to data server's metadata cache
+            if created == True:
+                if local_ch.connected == False:
+                    local_ch.connect('127.0.0.1')  # to local
+                local_ch.fileadd_req(mogami_path, data_path)
                 
 
     def read(self, length, offset):

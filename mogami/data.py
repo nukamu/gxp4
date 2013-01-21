@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 #-*- coding: utf-8 -*-
 
+from __future__ import with_statement
+
 import os
 import os.path
 import sys
@@ -26,7 +28,7 @@ class MogamiLocalFileDict(object):
     def __init__(self, ):
         self.filedict = {}
         self.lock = threading.Lock()
-
+        
     def addfile(self, mogami_path, local_path):
         with self.lock:
             self.filedict[mogami_path] = local_path
@@ -63,7 +65,7 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 
             if req[0] == channel.REQ_OPEN:
                 MogamiLog.debug('** open **')
-                self.open(req[1], req[2], *req[3])
+                self.open(req[1], req[2], req[3], *req[4])
 
             elif req[0] == channel.REQ_CREATE:
                 MogamiLog.debug('** create **')
@@ -105,12 +107,12 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 
             elif req[0] == channel.REQ_FILEREP:
                 MogamiLog.debug("** filerep **")
-                print "** filerep parms = %s" % (str(req))
+                #print "** filerep parms = %s" % (str(req))
                 self.filerep(req[1], req[2], req[3], req[4])
 
             elif req[0] == channel.REQ_RECVREP:
                 MogamiLog.debug("** recvrep **")
-                print "** recvrep parms = %s" % (str(req))
+                #print "** recvrep parms = %s" % (str(req))
                 self.recvrep(req[1], req[2], req[3])
 
             elif req[0] == channel.REQ_FILEREQ:
@@ -141,13 +143,14 @@ class MogamiDataHandler(daemons.MogamiDaemons):
     def open(self, mogamipath, datapath, flag, *mode):
         start_t = time.time()
         MogamiLog.debug("path = %s, flag = %s, mode = %s" %
-                        (data_path, str(flag), str(mode)))
+                        (datapath, str(flag), str(mode)))
         flag = flag & ~os.O_EXCL
         try:
             fd = os.open(datapath, flag, *mode)
             ans = 0
-            if self.filedict.checkfile(mogamipath) == None:
-                self.filedict.addfile(mogamipath, datapath)
+            if conf.local_request is True:
+                if self.filedict.checkfile(mogamipath) == None:
+                    self.filedict.addfile(mogamipath, datapath)
         except Exception, e:
             fd = None
             ans = e.errno
@@ -269,7 +272,7 @@ class MogamiDataHandler(daemons.MogamiDaemons):
 
         MogamiLog.debug("finish send data of file")
         ans = to_channel.recvrep_getanswer()
-        print "finished replication (ans: %d)" % (ans)
+        #print "finished replication (ans: %d)" % (ans)
         if ans == 0:
             self.c_channel.filerep_answer(ans, f_size)
         to_channel.finalize()
@@ -289,7 +292,8 @@ class MogamiDataHandler(daemons.MogamiDaemons):
                 write_size += len(buf)
             f.close()
             ans = 0
-            self.filedict.addfile(mogami_path, data_path)
+            if conf.local_request is True:
+                self.filedict.addfile(mogami_path, data_path)
         except Exception:
             ans = -1
         self.c_channel.recvrep_answer(ans)
@@ -310,7 +314,7 @@ class MogamiDataHandler(daemons.MogamiDaemons):
         self.c_channel.filereq_answer(ans, local_path, fsize)
 
     def fileadd(self, mogami_path, data_path):
-        self.filedict.fileadd(mogami_path, data_path)
+        self.filedict.addfile(mogami_path, data_path)
 
 class MogamiData(object):
     """This is the class of mogami's data server
