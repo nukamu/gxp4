@@ -303,6 +303,8 @@ class MogamiFS(Fuse):
 
             if conf.local_request is True:
                 try:
+                    if local_ch.connected == False:
+                        local_ch.connect('127.0.0.1')
                     (ans, data_path, fsize) = local_ch.filereq_req(path)
                     if ans == 0:  # exists on local
                         dest = 'self'

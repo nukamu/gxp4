@@ -33,4 +33,4 @@ ap=False
 meta_type='fs'   # should be 'fs' or 'db'
 
 # configure for some optimizations
-local_request=False
+local_request=True
