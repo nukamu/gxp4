@@ -318,6 +318,11 @@ class MogamiFS(Fuse):
                 # request for metadata server
                 (ans, dest, data_path, self.fsize,
                  self.created) = m_channel.open_req(path, flag, *mode)
+                if dest == 'self':
+                    if local_ch.connected == False:
+                        local_ch.connect('127.0.0.1')
+                    local_ch.fileadd_req(self.path, data_path)
+                        
                 if ans != 0:  # error on metadata server
                     e = IOError()
                     e.errno = ans
