@@ -299,8 +299,8 @@ class MogamiJobScheduler():
                 if dest_list == None:
                     continue
                 for dest in dest_list:
-                    self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
-                        cmd[0], filename, dest, load)
+                    #self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
+                    #cmd[0], filename, dest, load)
                     if dest in load_dict:
                         load_dict[dest] += load
                     else:
@@ -329,7 +329,7 @@ class MogamiJobScheduler():
             if men_resource_dict[man] >= run.work.requirement['cpu']:
                 match_list.append((run, man))
                 men_resource_dict[man] -= run.work.requirement['cpu']
-                self.log += 'Choose Proper Node!! (%s)' % (man.name)
+                #self.log += 'Choose Proper Node!! (%s)' % (man.name)
             else:
                 left_run.append(run)
 
