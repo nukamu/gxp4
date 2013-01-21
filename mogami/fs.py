@@ -444,8 +444,8 @@ class MogamiFS(Fuse):
             if conf.ap is True:
                 start_t = time.time()
             MogamiLog.debug("** release **")
-            MogamiLog.critical("** file log ** cmd:%s,local:%s,read:%s,write:%s" % (
-                self.cmd, str(self.local), str(self.read_size), str(self.write_size)))
+            MogamiLog.critical("** file log ** file:%s,cmd:%s,local:%s,read:%s,write:%s" % (
+                self.path, self.cmd, str(self.local), str(self.read_size), str(self.write_size)))
 
             fsize = self.mogami_file.release(flags)
             ans = m_channel.release_req(self.path, fsize)
