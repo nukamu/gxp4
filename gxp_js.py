@@ -2522,7 +2522,7 @@ class job_scheduler(gxpc.cmd_interpreter):
 
         # miki-comment: temporary 
         feature_file_path = "/home/mikity/feature_montage.dat"
-        mds_host = "tsukuba100"
+        mds_host = "huscs000"
         
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler(
             feature_file_path, mds_host)

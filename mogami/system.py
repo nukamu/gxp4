@@ -7,6 +7,7 @@ from fuse import Fuse
 import fuse
 fuse.fuse_python_api = (0, 2)
 
+import conf
 import logging
 import os.path
 import sys
@@ -71,7 +72,8 @@ class MogamiLog(object):
         """
         instance = MogamiLog()
 
-        logdir = os.path.join(os.path.dirname(__file__), "log")
+        #logdir = os.path.join(conf.log_dir, "log")
+        logdir = conf.log_dir
         if log_type == "fs":
             instance.logfile = os.path.join(logdir, "mogami.log")
         elif log_type == "meta":
