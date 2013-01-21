@@ -317,6 +317,8 @@ class MogamiJobScheduler():
                     break
             else:
                 best_node_dict[runs_dict[cmd]] = None
+            if cmd[0] == 'mAdd' and '133.50.19.7' in candidates:
+                best_node_dict[runs_dict[cmd]] = men_dict['133.50.19.7']
 
         choose_end_t = time.time()
 
