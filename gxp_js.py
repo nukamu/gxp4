@@ -2521,7 +2521,7 @@ class job_scheduler(gxpc.cmd_interpreter):
         gxpc.cmd_interpreter.__init__(self)
 
         # miki-comment: temporary 
-        feature_file_path = "/home/mikity/feature_montage.dat"
+        feature_file_path = "/home/mikity/feature_pipe.dat"
         mds_host = "huscs000"
         
         self.mogami_scheduler = mogami_scheduler.MogamiJobScheduler(
@@ -3054,8 +3054,8 @@ class job_scheduler(gxpc.cmd_interpreter):
                 # get a man and a run from the head of the queues
                 match_list = [(self.runs_todo[0], self.men_free[0])]
 
-            #if self.logfp:
-            #    self.LOG("%s" % (self.mogami_scheduler.get_former_log()))
+            if self.logfp:
+                self.LOG("%s" % (self.mogami_scheduler.get_former_log()))
                 
             for run, man in match_list:
                 try:

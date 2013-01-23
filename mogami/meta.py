@@ -121,7 +121,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
         while True:
             # check deletion requests
             try:
-                (target_ip, target_file) = self.delfile_q.get(timeout=1)
+                (target_ip, target_file) = self.delfile_q.get(timeout=0.01)
                 self.send_delete_request(target_ip, [target_file, ])
             except Queue.Empty:
                 pass
@@ -129,14 +129,14 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
             # check replication requests
             try:
                 (path, org, org_path, dest, 
-                 dest_path) = self.repfile_q.get(timeout=1)
+                 dest_path) = self.repfile_q.get(timeout=0.01)
                 self.send_replication_request(path, org, org_path, 
                                               dest, dest_path)
             except Queue.Empty:
                 pass
 
             # check replication end messages
-            ch_list = select.select(self.sock_list, [], [], 1)[0]
+            ch_list = select.select(self.sock_list, [], [], 0.01)[0]
             for sock_id in ch_list:
                 (ch, path, org, org_path,
                  dest, dest_path) = self.sock_dict[sock_id]
@@ -144,7 +144,7 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
                 if ans == 0:
                     self.meta_rep.addrep(path, dest, dest_path, f_size)
                     # add new location to metadata 
-                    #print "*** add replication ***"
+                    print "*** add replication *** %s" % (path)
                 self.sock_list.remove(sock_id)
                 del self.sock_dict[sock_id]
 
@@ -159,6 +159,8 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
     def send_replication_request(self, path, org, org_path, dest, dest_path):
         MogamiLog.debug("file replication request was sent (%s: %s -> %s: %s)" %
                         (org, org_path, dest, dest_path))
+        print "file replication request was sent (%s: %s -> %s: %s)" % (org, org_path, dest, dest_path)
+
         c_channel = channel.MogamiChanneltoData(org)
         c_channel.filerep_req(path, org_path, dest, dest_path)
 
@@ -210,7 +212,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
 
             elif req[0] == channel.REQ_UNLINK:
                 MogamiLog.debug("** unlink **")
-                self.unlink(req[1])
+                self.unlink(req[1], req[2])
 
             elif req[0] == channel.REQ_RENAME:
                 MogamiLog.debug("** rename **")
@@ -376,13 +378,19 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             ans = e.errno
         self.c_channel.rmdir_answer(ans)
 
-    def unlink(self, path):
+    def unlink(self, path, async):
         MogamiLog.debug("path = %s" % path)
         try:
             (dest, dest_path) = self.meta_rep.unlink(path)
-            if dest != None:
-                self.sysinfo.add_delfile(dest, dest_path)
-            ans = 0
+            if async is True:
+                ans = 0
+                if dest != None:
+                    self.sysinfo.add_delfile(dest, dest_path)
+            else:
+                c_channel = channel.MogamiChanneltoData(dest)
+                ans = c_channel.delfile_req([dest_path, ])
+                c_channel.close_req()
+                c_channel.finalize()
         except os.error, e:
             ans = e.errno
         except Exception, e:
@@ -544,6 +552,23 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             print "OSError in release (%s)" % (e)
         ans = 0
         self.c_channel.release_answer(ans)
+
+        if conf.auto_repl == True:
+            filename = os.path.basename(path)
+            if filename.find('fit.') == 0:
+                (org, org_path, fsize) = self.meta_rep._get_metadata_one(path)
+                
+                f_name = os.path.basename(org_path)  # extract only file name
+                dest_path = os.path.join(self.sysinfo.get_data_rootpath('133.50.19.7'),
+                                         f_name)
+                self.sysinfo.add_repfile(path, org, org_path, '133.50.19.7', dest_path)
+            elif filename.find('c2mass') == 0:
+                (org, org_path, fsize) = self.meta_rep._get_metadata_one(path)
+                
+                f_name = os.path.basename(org_path)  # extract only file name
+                dest_path = os.path.join(self.sysinfo.get_data_rootpath('133.50.19.7'),
+                                         f_name)
+                self.sysinfo.add_repfile(path, org, org_path, '133.50.19.7', dest_path)
 
     def fgetattr(self, fd):
         try:

@@ -35,7 +35,10 @@ class MogamiLocalFileDict(object):
     
     def delfile(self, mogami_path):
         with self.lock:
-            del self.filedict[mogami_path]
+            try:
+                del self.filedict[mogami_path]
+            except KeyError:
+                pass
 
     def checkfile(self, mogami_path):
         with self.lock:
@@ -250,6 +253,8 @@ class MogamiDataHandler(daemons.MogamiDaemons):
         try:
             for file_name in file_list:
                 os.unlink(file_name)
+                if conf.local_request is True:
+                    self.filedict.delfile(file_name)
             ans = 0
         except Exception, e:
             ans = e.errno

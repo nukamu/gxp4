@@ -304,9 +304,9 @@ class MogamiChanneltoMeta(MogamiChannel):
         # 0 or errno
         return ans
 
-    def unlink_req(self, path):
+    def unlink_req(self, path, async):
         with self.lock:
-            self.send_msg((REQ_UNLINK, path))
+            self.send_msg((REQ_UNLINK, path, async))
             ans = self.recv_msg()
         # 0 or errno
         return ans

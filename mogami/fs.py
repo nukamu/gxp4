@@ -187,7 +187,10 @@ class MogamiFS(Fuse):
         @param path path name to unlink
         """
         MogamiLog.debug("** unlink ** path = %s" % (path, ))
-        ans = m_channel.unlink_req(path)
+        if conf.local_request is False:
+            ans = m_channel.unlink_req(path, True)
+        else:
+            ans = m_channel.unlink_req(path, False)
         return -ans
 
     def rename(self, oldpath, newpath):

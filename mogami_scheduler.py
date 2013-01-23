@@ -300,7 +300,7 @@ class MogamiJobScheduler():
                     continue
                 for dest in dest_list:
                     #self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
-                    #cmd[0], filename, dest, load)
+                    #    cmd[0], filename, dest, load)
                     if dest in load_dict:
                         load_dict[dest] += load
                     else:
@@ -319,6 +319,9 @@ class MogamiJobScheduler():
                 best_node_dict[runs_dict[cmd]] = None
             if cmd[0] == 'mAdd' and '133.50.19.7' in candidates:
                 best_node_dict[runs_dict[cmd]] = men_dict['133.50.19.7']
+            elif cmd[0] == 'mConcatFit' and '133.50.19.7' in candidates:
+                best_node_dict[runs_dict[cmd]] = men_dict['133.50.19.7']
+
 
         choose_end_t = time.time()
 
