@@ -4,6 +4,16 @@
 
 import sys,os.path
 
+apps_list = ['mProjectPP',
+        'mDiffFit',
+        'mConcatFit',
+        'mBackground',
+        'mImgtbl',
+        'mAdd',
+        'mShrink',
+        'mJPEG',
+        ]
+
 host_dict = {'tsukuba100': '163.220.103.90',
              'tsukuba101': '163.220.103.91',
              'tsukuba102': '163.220.103.92',
@@ -68,18 +78,19 @@ class Exp_Analyzer():
         self.access_dict = {}  # {cmd: {file_name: access}}
         # このコマンドがこのファイルにこの量アクセスを全部知っている
         f_data = open(f_data_path, 'r')
+        cmd = ''
         while True:
             line = f_data.readline()
             if line == '':
                 break
-            l = line.rsplit("|")
-            cmd = " ".join(eval(l[0]))
-            # mogami 上のpathにする
-            file_path = l[2].replace("/data/local2/mikity", '')
-            read_log = eval(l[4])
-            read_size = 0
-            for log in read_log:
-                read_size += log[1]
+            if line[0] != '/':
+                cmd = line.rstrip('\n')
+                continue
+            l = line.rsplit("\t")
+            file_path = l[0].replace("/data/local2/mikity", '')
+            local = eval(l[1])
+            read_size = int(l[2])
+            write_size = int(l[3])
             
             # 結果を代入
             if cmd not in self.access_dict:
@@ -156,13 +167,25 @@ class Exp_Analyzer():
             sum_remote += remote_size
             sum_local += local_size
 
-        for app, d in result_dict.iteritems():
+        result_dict['mDiffFit']['local'] += result_dict['mFitplane']['local']
+        result_dict['mDiffFit']['remote'] += result_dict['mFitplane']['remote']
+        result_dict['mDiffFit']['local'] += result_dict['mDiff']['local']
+        result_dict['mDiffFit']['remote'] += result_dict['mDiff']['remote']
+
+        del result_dict['mFitplane']
+        del result_dict['mDiff']
+
+
+        for app in apps_list:
+            d = result_dict[app]
+
             print "%s,%d,%d,%f" % (app, d['local'], d['remote'], d['local'] * 100/float(d['local'] + d['remote']))
         print "all,%d,%d,%f" % (sum_local, sum_remote, sum_local * 100/float(sum_local + sum_remote))
         print "================="
 
         all_exec_time = 0.0
-        for app, exec_time in self.job_execution_time.iteritems():
+        for app in apps_list:
+            exec_time = self.job_execution_time[app]
             count = self.job_execution_count[app]
             average_time = exec_time / float(count)
             print "%s,%f,%d" % (app, exec_time, count)

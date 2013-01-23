@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
+import csv
 import sys,os.path
 
 apps_list = ['mProjectPP',
@@ -11,6 +11,7 @@ apps_list = ['mProjectPP',
         'mImgtbl',
         'mAdd',
         'mShrink',
+        'mBgModel',
         'mJPEG',
         ]
 
@@ -71,37 +72,36 @@ host_dict = {'tsukuba100': '163.220.103.90',
 MOGAMI_MOUNT = "/data/local2/mikity/mnt"
 
 class Exp_Analyzer():
-    def __init__(self, f_data_path, f_result_path, meta_dir):
+    def __init__(self, f_aplog_path, f_result_path):
         self.all_job_sum_time = 0.0
-        self.meta_dir = meta_dir
+        self.sum_local = 0
+        self.sum_remote = 0
 
-        self.access_dict = {}  # {cmd: {file_name: access}}
-        # このコマンドがこのファイルにこの量アクセスを全部知っている
-        f_data = open(f_data_path, 'r')
+        self.result_dict = {}
+        local_size = 0
+        remote_size = 0
 
-        cmd = ''
-        while True:
-            line = f_data.readline()
-            if line == '':
-                break
-            if line[0] != '/':
-                cmd = line.rstrip('\n')
-                continue
-            l = line.rsplit("\t")
-            file_path = l[0].replace("/data/local2/mikity", '')
-            local = eval(l[1])
-            read_size = int(l[2])
-            write_size = int(l[3])
-            
-            # 結果を代入
-            if cmd not in self.access_dict:
-                self.access_dict[cmd] = {}
-            if file_path not in self.access_dict[cmd]:
-                self.access_dict[cmd][file_path] = 0
-            self.access_dict[cmd][file_path] += read_size
-        f_data.close()
+        ap_data = csv.reader(open(f_aplog_path), delimiter='\t')
 
-        self.dispatch_dict = {}
+        for ap in ap_data:
+            cmd = ap[0]
+            app = cmd.split(' ')[0]
+            filename = ap[1]
+            local = eval(ap[2])
+            read = int(ap[3])
+            write = int(ap[4])
+            if app not in self.result_dict:
+                self.result_dict[app] = {}
+                self.result_dict[app]['local'] = 0
+                self.result_dict[app]['remote'] = 0
+
+            if local == True:
+                self.result_dict[app]['local'] += read
+                self.sum_local += read
+            else:
+                self.result_dict[app]['remote'] += read
+                self.sum_remote += read
+
         self.job_execution_time = {}
         self.job_execution_count = {}
         # コマンドがどこにディスパッチされたか知っている
@@ -120,68 +120,29 @@ class Exp_Analyzer():
             if args[0] not in self.job_execution_time:
                 self.job_execution_time[args[0]] = 0.0
                 self.job_execution_count[args[0]] = 0
-            self.job_execution_time[args[0]] += float(l[4])
+            self.job_execution_time[args[0]] += float(l[10])
             self.job_execution_count[args[0]] += 1
-
-            ip = host_dict[l[5].rsplit('-')[0]]
-            if args[0] == "mDiffFit":
-                tmp_cmd = "mFitplane -b 0 %s" % (args[5])
-                self.dispatch_dict[tmp_cmd] = ip
-                tmp_cmd = "mDiff %s %s %s %s" % (args[3], args[4],
-                                                 args[5], args[6])
-                self.dispatch_dict[tmp_cmd] = ip
-            self.dispatch_dict[cmd] = ip
         f_result.close()
-
-    def get_owner(self, mogami_path):
-        f = open(os.path.join(self.meta_dir + mogami_path), 'r')
-        buf = f.read()
-        ip = buf.rsplit(",")[0]
-        f.close()
-        return ip
 
     def analyze(self, ):
         """結果として得たいもの
         = mProjectPPは3/100ファイルをローカルから，100/1000byteをローカルから
         """
-        sum_local = 0
-        sum_remote = 0
+        self.result_dict['mDiffFit']['local'] += self.result_dict['mFitplane']['local']
+        self.result_dict['mDiffFit']['remote'] += self.result_dict['mFitplane']['remote']
+        self.result_dict['mDiffFit']['local'] += self.result_dict['mDiff']['local']
+        self.result_dict['mDiffFit']['remote'] += self.result_dict['mDiff']['remote']
 
-        result_dict = {}
-        for cmd, file_dict in self.access_dict.iteritems():
-            dispatched = self.dispatch_dict[cmd]
-            local_size = 0
-            remote_size = 0
-            for file_path, size in file_dict.iteritems():
-                place = self.get_owner(file_path)
-                if place == dispatched:
-                    local_size += size
-                else:
-                    remote_size += size
-            app = cmd.rsplit(" ")[0]
-            if app not in result_dict:
-                result_dict[app] = {}
-                result_dict[app]['local'] = 0
-                result_dict[app]['remote'] = 0
-            result_dict[app]['local'] += local_size
-            result_dict[app]['remote'] += remote_size
-            sum_remote += remote_size
-            sum_local += local_size
-
-        result_dict['mDiffFit']['local'] += result_dict['mFitplane']['local']
-        result_dict['mDiffFit']['remote'] += result_dict['mFitplane']['remote']
-        result_dict['mDiffFit']['local'] += result_dict['mDiff']['local']
-        result_dict['mDiffFit']['remote'] += result_dict['mDiff']['remote']
-
-        del result_dict['mFitplane']
-        del result_dict['mDiff']
+        del self.result_dict['mFitplane']
+        del self.result_dict['mDiff']
 
 
         for app in apps_list:
-            d = result_dict[app]
-
-            print "%s,%d,%d,%f" % (app, d['local'], d['remote'], d['local'] * 100/float(d['local'] + d['remote']))
-        print "all,%d,%d,%f" % (sum_local, sum_remote, sum_local * 100/float(sum_local + sum_remote))
+            d = self.result_dict[app]
+            print "%s,%d,%d,%f" % (app, d['local'], d['remote'],
+                                   d['local'] * 100/float(d['local'] + d['remote']))
+        print "all,%d,%d,%f" % (self.sum_local, self.sum_remote,
+                                self.sum_local * 100/float(self.sum_local + self.sum_remote))
         print "================="
 
         all_exec_time = 0.0
@@ -196,7 +157,7 @@ class Exp_Analyzer():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        sys.exit("Usage: %s [data_path] [result_path] [meta_dir]")
-    e = Exp_Analyzer(sys.argv[-3], sys.argv[-2], sys.argv[-1])
+    if len(sys.argv) != 3:
+        sys.exit("Usage: %s [aplog_path] [result_path]")
+    e = Exp_Analyzer(sys.argv[1], sys.argv[2])
     e.analyze()
