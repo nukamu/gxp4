@@ -1,0 +1,73 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import subprocess
+import os.path
+import commands
+from optparse import OptionParser
+
+
+def main():
+    usage = "usage: %prog [mode] [options]"
+    parser = OptionParser(usage)
+    import os.path
+    import os
+
+    mogami_dir = commands.getoutput("which mogami")
+    if mogami_dir == "":
+        sys.exit("Error: please add mogami_dir/bin to $PATH")
+
+    if os.path.islink(mogami_dir):
+        mogami_dir = os.readlink(mogami_dir)
+    mogami_dir = mogami_dir.replace('/bin/mogami', '')
+    print mogami_dir
+    sys.path.append(mogami_dir)
+
+    parser.add_option("-m", "--meta", action="store_const",
+                      const=0, dest="mode")
+    parser.add_option("-s", "--server", action="store_const",
+                      const=1, dest="mode")
+    parser.add_option("-c", "--client", action="store_const",
+                      const=2, dest="mode")
+    parser.add_option("--share", action="store_const",
+                      const=3, dest="mode")
+
+    parser.add_option("--meta_addr", dest="meta_addr", default=None)
+
+
+    # options (not required)
+    parser.add_option("-f", action="store_true", dest="f", default=False)
+    parser.add_option("-d", action="store_true", dest="debug", default=False)
+
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        parser.error("required args are not defined: directory")
+
+    cwd = os.getcwd()
+    os.chdir(mogami_dir)
+
+    if options.mode == 0:  # case of meta
+        subprocess.Popen(['python', 'meta.py', os.path.join(cwd, args[0]),
+                          mogami_dir])
+    elif options.mode == 1:  # case of server
+        if options.meta_addr == None:
+            sys.exit("Error: Please Specify the Address of Metadata Server.")
+        subprocess.Popen(['python', 'data.py', options.meta_addr,
+                          os.path.join(cwd, args[0]), mogami_dir])
+    elif options.mode == 2:  # case of client
+        if options.meta_addr == None:
+            sys.exit("Error: Please Specify the Address of Metadata Server.")
+        if options.debug == True:
+            os.system("python fs.py %s %s -d" % (options.meta_addr,
+                                                 os.path.join(cwd, args[0])))
+        elif options.f == True:
+            os.system("python fs.py %s %s -f" % (options.meta_addr,
+                                                 os.path.join(cwd, args[0])))
+        else:
+            os.system("python fs.py %s %s -o big_writes -o large_read" %
+                      (options.meta_addr, os.path.join(cwd, args[0])))
+
+if __name__ == '__main__':
+    main()
