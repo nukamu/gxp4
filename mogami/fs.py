@@ -132,13 +132,18 @@ class MogamiFS(Fuse):
         MogamiLog.debug("** getattr ** path = %s" % (path, ))
 
         if path in negative_cache:
-            if time.time() - negative_cache[path] < 3.0:
+            if negative_cache[path] == -1:
+                MogamiLog.debug("+++ No such file or directory (path: %s) +++" % (path, ))
                 return -errno.ENOENT
+            else:
+                return negative_cache[path]
 
         (ans, st_dict) = m_channel.getattr_req(path)
         if ans != 0:
-            if ans == errno.ENOENT and path.find('.pm') != -1:                
-                negative_cache[path] = time.time()
+            if ans == errno.ENOENT and path.find('/modules') != -1:
+                negative_cache[path] = -1
+            elif ans == errno.ENOENT and (path.find('.py') != -1 or path.find('.so') != -1):                
+                negative_cache[path] = -1
             return -ans
         else:
             st = filemanager.MogamiStat()
@@ -146,6 +151,9 @@ class MogamiFS(Fuse):
         # if file_size_dict has cache of file size, replace it
         if path in file_size_dict:
             st.chsize(file_size_dict[path])
+
+        if path.find('/modules') != -1:
+            negative_cache[path] = st
         return st
 
     def readdir(self, path, offset):
