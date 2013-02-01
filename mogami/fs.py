@@ -137,7 +137,7 @@ class MogamiFS(Fuse):
 
         (ans, st_dict) = m_channel.getattr_req(path)
         if ans != 0:
-            if ans == errno.ENOENT:
+            if ans == errno.ENOENT and path.find('.pm') != -1:                
                 negative_cache[path] = time.time()
             return -ans
         else:
