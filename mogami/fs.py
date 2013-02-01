@@ -35,6 +35,8 @@ file_access_dict = {}
 file_access_lock = threading.Lock()
 local_ch = channel.MogamiChanneltoData()
 
+negative_cache = {}
+
 class MogamiFileAccessHistory(object):
     def __init__(self, ):
         self.ap_dict = {}
@@ -129,8 +131,14 @@ class MogamiFS(Fuse):
     def getattr(self, path):
         MogamiLog.debug("** getattr ** path = %s" % (path, ))
 
+        if path in negative_cache:
+            if time.time() - negative_cache[path] < 3.0:
+                return -errno.ENOENT
+
         (ans, st_dict) = m_channel.getattr_req(path)
         if ans != 0:
+            if ans == errno.ENOENT:
+                negative_cache[path] = time.time()
             return -ans
         else:
             st = filemanager.MogamiStat()
@@ -498,6 +506,7 @@ if __name__ == "__main__":
         sys.argv.extend(['-o', 'big_writes'])
     if 'large_read' not in sys.argv:
         sys.argv.extend(['-o', 'large_read'])
+    sys.argv.extend(['-o', 'kernel_cache'])
     MogamiLog.init("fs", conf.fs_loglevel)
     fs = MogamiFS(sys.argv[1],
                   version="%prog " + fuse.__version__,
