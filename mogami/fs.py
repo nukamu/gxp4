@@ -519,7 +519,7 @@ if __name__ == "__main__":
         sys.argv.extend(['-o', 'big_writes'])
     if 'large_read' not in sys.argv:
         sys.argv.extend(['-o', 'large_read'])
-    sys.argv.extend(['-o', 'kernel_cache'])
+    #sys.argv.extend(['-o', 'kernel_cache'])
     MogamiLog.init("fs", conf.fs_loglevel)
     fs = MogamiFS(sys.argv[1],
                   version="%prog " + fuse.__version__,
