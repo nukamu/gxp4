@@ -131,19 +131,19 @@ class MogamiFS(Fuse):
     def getattr(self, path):
         MogamiLog.debug("** getattr ** path = %s" % (path, ))
 
-        if path in negative_cache:
-            if negative_cache[path] == -1:
-                MogamiLog.debug("+++ No such file or directory (path: %s) +++" % (path, ))
-                return -errno.ENOENT
-            else:
-                return negative_cache[path]
+        #if path in negative_cache:
+        #    if negative_cache[path] == -1:
+        #        MogamiLog.debug("+++ No such file or directory (path: %s) +++" % (path, ))
+        #        return -errno.ENOENT
+        #    else:
+        #        return negative_cache[path]
 
         (ans, st_dict) = m_channel.getattr_req(path)
         if ans != 0:
-            if ans == errno.ENOENT and path.find('/modules') != -1:
-                negative_cache[path] = -1
-            elif ans == errno.ENOENT and (path.find('.py') != -1 or path.find('.so') != -1):                
-                negative_cache[path] = -1
+        #    if ans == errno.ENOENT and path.find('/modules') != -1:
+        #        negative_cache[path] = -1
+        #    elif ans == errno.ENOENT and (path.find('.py') != -1 or path.find('.so') != -1):                
+        #        negative_cache[path] = -1
             return -ans
         else:
             st = filemanager.MogamiStat()
@@ -152,8 +152,8 @@ class MogamiFS(Fuse):
         if path in file_size_dict:
             st.chsize(file_size_dict[path])
 
-        if path.find('/modules') != -1:
-            negative_cache[path] = st
+        #if path.find('/modules') != -1:
+        #    negative_cache[path] = st
         return st
 
     def readdir(self, path, offset):
@@ -389,6 +389,7 @@ class MogamiFS(Fuse):
                 f = open(os.path.join("/proc", str(pid), "cmdline"), 'r')
                 self.cmd = f.read().rstrip('\x00').replace('\x00', ' ')
 
+            self.ap_lock = threading.Lock()
             self.read_size = 0
             self.write_size = 0
 
@@ -413,7 +414,9 @@ class MogamiFS(Fuse):
                                                 len(ret_buf))
                 
                 self.took_time += end_t - start_t
-            self.read_size += len(ret_buf)
+
+            with self.ap_lock:
+                self.read_size += len(ret_buf)
 
             return ret_buf
 
@@ -439,7 +442,9 @@ class MogamiFS(Fuse):
             if conf.ap is True:
                 end_t = time.time()
                 self.took_time += end_t - start_t
-            self.write_size += ret_value
+
+            with self.ap_lock:
+                self.write_size += ret_value
             return ret_value
 
         def flush(self, ):
