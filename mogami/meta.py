@@ -606,7 +606,7 @@ class MogamiMeta(object):
     def __init__(self, rootpath):
         """This is the function of MogamiMeta's init.
         """
-        MogamiLog.init("meta", conf.meta_loglevel)
+        MogamiLog.init(MogamiLog.TYPE_META, conf.meta_loglevel)
 
         self.sysinfo = MogamiSystemInfo(rootpath)
 

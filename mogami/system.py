@@ -64,13 +64,13 @@ class MogamiLog(object):
         instance = MogamiLog()
 
         logdir = conf.log_dir
-        if log_type == self.TYPE_FS:
+        if log_type == MogamiLog.TYPE_FS:
             instance.logfile = os.path.join(logdir, "mogami.log")
-        elif log_type == self.TYPE_META:
+        elif log_type == MogamiLog.TYPE_META:
             instance.logfile = os.path.join(logdir, "meta.log")
-        elif log_type == self.TYPE_DATA:
+        elif log_type == MogamiLog.TYPE_DATA:
             instance.logfile = os.path.join(logdir, "data.log")
-        elif log_type == self.TYPE_SCHEDULER:
+        elif log_type == MogamiLog.TYPE_SCHEDULER:
             instance.logfile = os.path.join(logdir, "scheduler.log")
         else:
             raise

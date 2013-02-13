@@ -339,7 +339,7 @@ class MogamiData(object):
         assert os.access(self.rootpath, os.R_OK and os.W_OK and os.X_OK)
 
         # Initialization of Log.
-        MogamiLog.init("data", conf.data_loglevel)
+        MogamiLog.init(MogamiLog.TYPE_DATA, conf.data_loglevel)
         MogamiLog.info("Start initialization...")
         MogamiLog.debug("rootpath = " + self.rootpath)
 
