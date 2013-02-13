@@ -5,6 +5,8 @@ import unittest
 import sys
 import os
 sys.path.append(os.pardir)
+import tempfile
+import shutil
 
 class TestMogamiBasic(unittest.TestCase):
     """In these test, the results of usual os method 

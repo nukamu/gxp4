@@ -159,7 +159,6 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
     def send_replication_request(self, path, org, org_path, dest, dest_path):
         MogamiLog.debug("file replication request was sent (%s: %s -> %s: %s)" %
                         (org, org_path, dest, dest_path))
-        print "file replication request was sent (%s: %s -> %s: %s)" % (org, org_path, dest, dest_path)
 
         c_channel = channel.MogamiChanneltoData(org)
         c_channel.filerep_req(path, org_path, dest, dest_path)
@@ -515,7 +514,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 dest = self.sysinfo.choose_data_server(
                     self.c_channel.getpeername())
                 if dest == None:
-                    print "!! There are no data server to create file !!"
+                    MogamiLog.error("!! There are no data server to create file !!")
                 filename = ''.join(random.choice(string.letters)
                                    for i in xrange(16))
                 data_path = os.path.join(
@@ -526,7 +525,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
                 created = True
                 ans = 0
             except Exception, e:
-                print "!! have fatal error @2!! (%s)" % (e)
+                MogamiLog.error("!! have fatal error @2!! (%s)" % (e))
                 ans = e.errno
                 dest = None
                 fd = None
@@ -651,7 +650,7 @@ class MogamiMeta(object):
             MogamiLog.debug("Created thread name = " + metad.getName())
 
 
-def main(dir_path):
+def main(dir_path, config=None):
     meta = MogamiMeta(dir_path)
     meta.run()
 

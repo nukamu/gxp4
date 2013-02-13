@@ -392,7 +392,7 @@ class MogamiData(object):
         self.m_channel.finalize()
 
 
-def main(meta_addr, dir_path):
+def main(meta_addr, dir_path, config=None):
     data = MogamiData(meta_addr, dir_path)
     atexit.register(data.finalize)
     data.run()

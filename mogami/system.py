@@ -12,15 +12,6 @@ import logging
 import os.path
 import sys
 
-class MogamiNodeInfo(object):
-    def __init__(self, ip):
-        self.ip = ip
-
-class MogamiNodeInfoMeta(MogamiNodeInfo):
-    def __init__(self, ip, db_path):
-        MogamiNodeInfo(self, ip)
-        self.db_path = db_path
-        
 
 class Singleton(type):
     """Singleton Class implementation from
@@ -43,10 +34,10 @@ class MogamiLog(object):
     __metaclass__ = Singleton
     
     # Type of Component
-    FS = 0
-    META = 1
-    DATA = 2
-    SCHEDULER = 3
+    TYPE_FS = 0
+    TYPE_META = 1
+    TYPE_DATA = 2
+    TYPE_SCHEDULER = 3
 
     DEBUG = logging.DEBUG
     INFO = logging.INFO
@@ -72,15 +63,14 @@ class MogamiLog(object):
         """
         instance = MogamiLog()
 
-        #logdir = os.path.join(conf.log_dir, "log")
         logdir = conf.log_dir
-        if log_type == "fs":
+        if log_type == self.TYPE_FS:
             instance.logfile = os.path.join(logdir, "mogami.log")
-        elif log_type == "meta":
+        elif log_type == self.TYPE_META:
             instance.logfile = os.path.join(logdir, "meta.log")
-        elif log_type == "data":
+        elif log_type == self.TYPE_DATA:
             instance.logfile = os.path.join(logdir, "data.log")
-        elif log_type == MogamiLog.SCHEDULER:
+        elif log_type == self.TYPE_SCHEDULER:
             instance.logfile = os.path.join(logdir, "scheduler.log")
         else:
             raise
@@ -119,9 +109,8 @@ def usagestr():
     return ""+ fuse.Fuse.fusage
 
 class MogamiError(Exception):
-    
     def __init__(self, typeno, ):
-        self.str = value
+        pass
 
     def __str__(self, ):
         pass

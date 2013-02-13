@@ -152,7 +152,7 @@ class MogamiMetaFS(object):
     def readdir(self, path):
         return os.listdir(self.rootpath + path)
 
-    def mkdir(self, path, mode):
+    def mkdir(self, path, mode=0777):
         return os.mkdir(self.rootpath + path, mode)
 
     def rmdir(self, path):
@@ -365,7 +365,7 @@ class MogamiMetaDB(object):
             ret_list.append(rec[0].encode('utf-8'))
         return ret_list
 
-    def mkdir(self, path, mode):
+    def mkdir(self, path, mode=0777):
         create_mode = mode   # default?
         size = 4096  # directory size
         current_t = int(time.time())

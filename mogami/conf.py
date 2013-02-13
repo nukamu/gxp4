@@ -5,7 +5,7 @@ metaport=15806
 dataport=15807
 
 # Define the directory for log
-log_dir="/data/local2/mikity"
+log_dir="/tmp/mogamilog"
 
 # Define buffer size and block size in mogami
 bufsize=1024

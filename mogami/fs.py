@@ -513,15 +513,15 @@ class MogamiFS(Fuse):
         self.file_class = self.MogamiFile
         return Fuse.main(self, *a, **kw)
 
-
-if __name__ == "__main__":
-    if 'big_writes' not in sys.argv:
-        sys.argv.extend(['-o', 'big_writes'])
-    if 'large_read' not in sys.argv:
-        sys.argv.extend(['-o', 'large_read'])
-    #sys.argv.extend(['-o', 'kernel_cache'])
+def main(meta_addr, args, config=None):
+    sys.argv = args
+    if 'big_writes' not in args:
+        args.extend(['-o', 'big_writes'])
+    if 'large_read' not in args:
+        args.extend(['-o', 'large_read'])
     MogamiLog.init("fs", conf.fs_loglevel)
-    fs = MogamiFS(sys.argv[1],
+
+    fs = MogamiFS(meta_addr, 
                   version="%prog " + fuse.__version__,
                   usage=system.usagestr())
     fs.flags = 0

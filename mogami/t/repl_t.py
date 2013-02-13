@@ -5,7 +5,6 @@ import unittest
 import sys
 import os
 sys.path.append(os.pardir)
-import 
 
 import os.path
 import errno
