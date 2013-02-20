@@ -5276,32 +5276,26 @@ this command line.
         meta_target = self.session.successful_targets.keys()[0]
         Es("gxpc: %s was selected as metadata server.\n" % (meta_target))
 
-        # default None
-        target_prefix = self.opts.target_prefix
-        if target_prefix is None:
-            pass
-        
+        print self.opts.args        
         # launch program for metadata server.
-        meta_args = [os.path.join(target_prefix, 'meta.py'), meta_target]
-        self.e_like_cmd("e", meta_args, None, 1, 0)
+        pid = os.fork()
+        if pid == 0:
+            os.execvp('mogami', ['', '--meta', '/home/miki/tmp/tmp/meta'])
+        Es("gxpc: metadata server initialization finished (on %s)\n" % (meta_target))
 
         # launch program for data servers.
-        data_args = [os.path.join(target_prefix, 'data.py'), ]
+        data_args = ['data.py']
         self.e_like_cmd("e", data_args, None, 1, 0)
 
         # launch program for clients. (mogamifs is mounted here)
-        fs_args = [os.path.join(target_prefix, 'fs.py')]
+        fs_args = ['fs.py', ]
         self.e_like_cmd("e", fs_args, None, 1, 0)
 
     def usage_mogami_cmd(self, args):
         u = r"""Usage:
-  gxpc mogami [--meta_addr meta_hostname]
+  gxpc mogami [--meta_addr meta_hostname] mount_point
 """
         return u
-
-    def select_metadata_server(self, ):
-        pass
-
 
     def js_like_cmd(self, cname, args):
         if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN

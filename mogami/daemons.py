@@ -3,20 +3,23 @@
 
 from __future__ import with_statement
 
-import os
-import sys
 import threading
 import select
 import time
 
 import conf
+import channel
 from system import MogamiLog
 
 
 class MogamiDaemons(threading.Thread):
+    """Base class for all daemons.
+    All daemons in Mogami should be derived from this class.
+    """
     def __init__(self, ):
         threading.Thread.__init__(self)
         self.setDaemon(True)
+
 
 class MogamiThreadCollector(MogamiDaemons):
     """Collect dead threads in arguments.
@@ -25,7 +28,7 @@ class MogamiThreadCollector(MogamiDaemons):
     """
     def __init__(self, daemons):
         MogamiDaemons.__init__(self)
-        self.daemons = daemons   # list of daemons
+        self.daemons = daemons   # list of target daemons
 
     def run(self, ):
         while True:
@@ -36,6 +39,44 @@ class MogamiThreadCollector(MogamiDaemons):
                     MogamiLog.debug("** join thread **")
                     self.daemons.remove(d)
             time.sleep(3)
+
+
+class MogamiRequestHandler(MogamiDaemons):
+    """
+    """
+    def __init__(self, ):
+        MogamiDaemons.__init__(self)
+        self.func_dict = {}
+
+    def regist_handler(self, req, funcname):
+        """
+        """
+        self.func_dict[req] = funcname
+        
+    def run(self, ):
+        while True:
+            req = self.c_channel.recv_request()
+            if req == None:  # failed to receive data
+                MogamiLog.debug("Connection Closed")
+                self.c_channel.finalize()
+                break
+            elif req[0] == channel.REQ_CLOSE:  # close request
+                MogamiLog.debug("Connection Closed")
+                self.c_channel.finalize()
+                break
+
+            if req[0] in self.func_dict:
+                MogamiLog.debug('** %s **' % (self.func_dict[req[0]]))
+                method = getattr(self, self.func_dict[req[0]])
+                req_args = list(req)
+                req_args.pop(0)
+                method(*req_args)
+
+            else:  # doesn't match any expected request
+                MogamiLog.error('** This is unexpected header **')
+                self.c_channel.finalize()
+                break
+
 
 class MogamiPrefetchThread(MogamiDaemons):
     """Class for the thread to recv data.

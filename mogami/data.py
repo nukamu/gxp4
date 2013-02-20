@@ -12,17 +12,15 @@ import random
 import threading
 import re
 import time
-import stat
 import socket
-import cPickle
 import cStringIO
 
 import atexit    # for leave from meta data sever list
 
 import channel
 import daemons
-import conf
 from system import MogamiLog
+import conf
 
 class MogamiLocalFileDict(object):
     def __init__(self, ):
@@ -48,88 +46,34 @@ class MogamiLocalFileDict(object):
                 local_path = None
         return local_path
         
-class MogamiDataHandler(daemons.MogamiDaemons):
+class MogamiDataHandler(daemons.MogamiRequestHandler):
     """This is the class for thread created for each client.
     This handler is run as multithread.
     """
     def __init__(self, c_channel, rootpath, filedict):
-        daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiRequestHandler.__init__(self)
         self.c_channel = c_channel
         self.rootpath = rootpath
         self.filedict = filedict
 
-    def run(self, ):
-        while True:
-            req = self.c_channel.recv_request()
-            if req == None:
-                MogamiLog.debug("Connection closed")
-                self.c_channel.finalize()
-                break
-
-            if req[0] == channel.REQ_OPEN:
-                MogamiLog.debug('** open **')
-                self.open(req[1], req[2], req[3], *req[4])
-
-            elif req[0] == channel.REQ_CREATE:
-                MogamiLog.debug('** create **')
-                self.create(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_READ:
-                MogamiLog.debug('** read **')
-                self.read(req[1], req[2])
-
-            elif req[0] == channel.REQ_PREFETCH:
-                MogamiLog.debug('** prefetch')
-                self.prefetch(req[1], req[2])
-
-            elif req[0] == channel.REQ_FLUSH:
-                MogamiLog.debug('** flush')
-                self.flush(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_RELEASE:
-                MogamiLog.debug('** release **')
-                self.release(req[1])
-                self.c_channel.finalize()
-                break
-
-            elif req[0] == channel.REQ_TRUNCATE:
-                MogamiLog.debug('** truncate')
-                self.truncate(req[1], req[2])
-
-            elif req[0] == channel.REQ_FTRUNCATE:
-                MogamiLog.debug('** ftruncate')
-
-            elif req[0] == channel.REQ_CLOSE:
-                MogamiLog.debug("** quit **")
-                self.c_channel.finalize()
-                break
-
-            elif req[0] == channel.REQ_FILEDEL:
-                MogamiLog.debug("** filedel **")
-                self.filedel(req[1])
-
-            elif req[0] == channel.REQ_FILEREP:
-                MogamiLog.debug("** filerep **")
-                #print "** filerep parms = %s" % (str(req))
-                self.filerep(req[1], req[2], req[3], req[4])
-
-            elif req[0] == channel.REQ_RECVREP:
-                MogamiLog.debug("** recvrep **")
-                #print "** recvrep parms = %s" % (str(req))
-                self.recvrep(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_FILEREQ:
-                MogamiLog.debug("** filereq **")
-                self.filereq(req[1])  # path
-
-            elif req[0] == channel.REQ_FILEADD:
-                MogamiLog.debug("** fileadd **")
-                self.fileadd(req[1], req[2])  # mogami_path, data_path
-
-            else:
-                MogamiLog.debug('** this is unexpected header. break!')
-                self.c_channel.finalize()
-                break
+        req_types = [(channel.REQ_OPEN, 'open'),
+                     (channel.REQ_CREATE, 'create'),
+                     (channel.REQ_READ, 'read'),
+                     (channel.REQ_PREFETCH, 'prefetch'),
+                     (channel.REQ_FLUSH, 'flush'),
+                     # need to close connection
+                     (channel.REQ_RELEASE, 'release'),  
+                     (channel.REQ_TRUNCATE, 'truncate'),
+                     (channel.REQ_FTRUNCATE, 'ftruncate'),
+                     (channel.REQ_FILEDEL, 'filedel'),
+                     (channel.REQ_FILEREP, 'filerep'),
+                     (channel.REQ_RECVREP, 'recvrep'),
+                     (channel.REQ_FILEREQ, 'filereq'),
+                     (channel.REQ_FILEADD, 'fileadd'),
+                     ]
+        
+        for (req, funcname) in req_types:
+            self.regist_handler(req, funcname)
 
     def truncate(self, path, length):
         MogamiLog.debug("path = %s. length = %d" % (path, length))
@@ -321,6 +265,7 @@ class MogamiDataHandler(daemons.MogamiDaemons):
     def fileadd(self, mogami_path, data_path):
         self.filedict.addfile(mogami_path, data_path)
 
+
 class MogamiData(object):
     """This is the class of mogami's data server
     """
@@ -349,7 +294,7 @@ class MogamiData(object):
         MogamiLog.debug("Success in creating connection to metadata server")
         self.m_channel.dataadd_req(self.rootpath)
 
-        MogamiLog.debug("Init complete!!")
+        MogamiLog.info("Init complete!!")
 
     def run(self, ):
         # create a socket to listen and accept

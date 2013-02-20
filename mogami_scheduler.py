@@ -299,8 +299,8 @@ class MogamiJobScheduler():
                 if dest_list == None:
                     continue
                 for dest in dest_list:
-                    #self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
-                    #    cmd[0], filename, dest, load)
+                    self.log += '%s is expected to read: filename = %s, dest = %s, size = %d' % (
+                        cmd[0], filename, dest, load)
                     if dest in load_dict:
                         load_dict[dest] += load
                     else:
@@ -313,28 +313,26 @@ class MogamiJobScheduler():
             ordered_men_list.reverse()
             for (load, man) in ordered_men_list:
                 if man in candidates:
-                    best_node_dict[runs_dict[cmd]] = men_dict[man]
+                    if runs_dict[cmd] not in best_node_dict:
+                        best_node_dict[runs_dict[cmd]] = []
+                    best_node_dict[runs_dict[cmd]].append(men_dict[man])
                     break
             else:
                 best_node_dict[runs_dict[cmd]] = None
-            if cmd[0] == 'mAdd' and '133.50.19.7' in candidates:
-                best_node_dict[runs_dict[cmd]] = men_dict['133.50.19.7']
-            elif cmd[0] == 'mConcatFit' and '133.50.19.7' in candidates:
-                best_node_dict[runs_dict[cmd]] = men_dict['133.50.19.7']
-
 
         choose_end_t = time.time()
 
         # check resource and make matches run and man
         left_run = []
-        for run, man in best_node_dict.iteritems():
+        for run, man_ordered_list in best_node_dict.iteritems():
             if man == None:
                 left_run.append(run)
                 continue
-            if men_resource_dict[man] >= run.work.requirement['cpu']:
-                match_list.append((run, man))
-                men_resource_dict[man] -= run.work.requirement['cpu']
-                #self.log += 'Choose Proper Node!! (%s)' % (man.name)
+            for man in man_ordered_list:
+                if men_resource_dict[man] >= run.work.requirement['cpu']:
+                    match_list.append((run, man))
+                    men_resource_dict[man] -= run.work.requirement['cpu']
+                    break
             else:
                 left_run.append(run)
 

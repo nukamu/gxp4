@@ -3,13 +3,9 @@
 
 from __future__ import with_statement
 
-import sys
-import os
 import threading
 import socket
-import select
 import time
-import string
 import cStringIO
 import cPickle
 

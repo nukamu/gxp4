@@ -2142,6 +2142,9 @@ class gxpd(ioman.ioman):
                                     os.path.join(gxp_dir, "gxpbin"))
             path = self.append_path(path,
                                     os.path.join(gxp_dir, "gxpmake"))
+            path = self.append_path(path,
+                                    os.path.join(gxp_dir, "mogami"))
+
         if 1:
             pypath = os.environ.get("PYTHONPATH", "")
             pypath = self.append_path(pypath, gxp_dir)
@@ -2149,6 +2152,8 @@ class gxpd(ioman.ioman):
                                       os.path.join(gxp_dir, "gxpbin"))
             pypath = self.append_path(pypath,
                                       os.path.join(gxp_dir, "gxpmake"))
+            pypath = self.append_path(pypath,
+                                      os.path.join(gxp_dir, "mogami"))
         prefix,gxp_top = os.path.split(gxp_dir)
         # including these seem to make gxpc slower in
         # some environments

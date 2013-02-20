@@ -168,127 +168,54 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
         self.sock_dict[sock_id] = (c_channel, path, org, org_path,
                                    dest, dest_path)
 
-class MogamiMetaHandler(daemons.MogamiDaemons):
+class MogamiMetaHandler(daemons.MogamiRequestHandler):
     """This is the class for thread created for each client.
     This handler is run as multithread.
     """
     def __init__(self, client_channel, sysinfo, meta_rep):
-        daemons.MogamiDaemons.__init__(self)
+        daemons.MogamiRequestHandler.__init__(self)
         self.sysinfo = sysinfo
-        self.meta_rep = meta_rep
         self.c_channel = client_channel
 
-    def run(self, ):
-        if self.meta_rep == None:  # case of 'db'
+        if meta_rep == None:  # case of 'db'
             self.meta_rep = metadata.MogamiMetaDB(self.sysinfo.meta_rootpath)
+        else:
+            self.meta_rep = meta_rep
 
-        while True:
-            req = self.c_channel.recv_request()
-            if req == None:
-                MogamiLog.debug("Connection closed")
-                self.c_channel.finalize()
-                break
+        req_types = [(channel.REQ_GETATTR, 'getattr'),
+                     (channel.REQ_READDIR, 'readdir'),
+                     (channel.REQ_ACCESS, 'access'),
+                     (channel.REQ_MKDIR, 'mkdir'),
+                     (channel.REQ_RMDIR, 'rmdir'),
+                     (channel.REQ_UNLINK, 'unlink'),
+                     (channel.REQ_RENAME, 'rename'),
+                     (channel.REQ_MKNOD, 'mknod'),
+                     (channel.REQ_CHMOD, 'chmod'),
+                     (channel.REQ_CHOWN, 'chown'),
+                     (channel.REQ_LINK, 'link'),
+                     (channel.REQ_SYMLINK, 'symlink'),
+                     (channel.REQ_READLINK, 'readlink'),
+                     (channel.REQ_TRUNCATE, 'truncate'),
+                     (channel.REQ_UTIME, 'utime'),
+                     (channel.REQ_FSYNC, 'fsync'),
+                     (channel.REQ_OPEN, 'open'),
+                     (channel.REQ_RELEASE, 'release'),
+                     (channel.REQ_FGETATTR, 'fgetattr'),
+                     (channel.REQ_FTRUNCATE, 'ftruncate'),
+                     (channel.REQ_DATAADD, 'dataadd'),
+                     (channel.REQ_DATADEL, 'datadel'),
+                     (channel.REQ_RAMFILEADD, 'register_ramfiles'),
+                     (channel.REQ_FILEASK, 'fileask'),
+                     (channel.REQ_FILEREP, 'filerep')
+                     ]
 
-            if req[0] == channel.REQ_GETATTR:
-                MogamiLog.debug("** getattr **")
-                self.getattr(req[1])
-
-            elif req[0] == channel.REQ_READDIR:
-                MogamiLog.debug("** readdir **")
-                self.readdir(req[1])
-
-            elif req[0] == channel.REQ_ACCESS:
-                MogamiLog.debug("** access **")
-                self.access(req[1], req[2])
-
-            elif req[0] == channel.REQ_MKDIR:
-                MogamiLog.debug("** mkdir **")
-                self.mkdir(req[1], req[2])
-
-            elif req[0] == channel.REQ_RMDIR:
-                MogamiLog.debug("** rmdir **")
-                self.rmdir(req[1])
-
-            elif req[0] == channel.REQ_UNLINK:
-                MogamiLog.debug("** unlink **")
-                self.unlink(req[1], req[2])
-
-            elif req[0] == channel.REQ_RENAME:
-                MogamiLog.debug("** rename **")
-                self.rename(req[1], req[2])
-
-            elif req[0] == channel.REQ_MKNOD:
-                MogamiLog.debug("** mknod **")
-                self.mknod(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_CHMOD:
-                MogamiLog.debug("** chmod **")
-                self.chmod(req[1], req[2])
-
-            elif req[0] == channel.REQ_CHOWN:
-                MogamiLog.debug("** chown **")
-                self.chown(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_LINK:
-                self.link(req[1], req[2])
-
-            elif req[0] == channel.REQ_SYMLINK:
-                self.symlink(req[1], req[2])
-
-            elif req[0] == channel.REQ_READLINK:
-                self.readlink(req[1])
-
-            elif req[0] == channel.REQ_TRUNCATE:
-                self.truncate(req[1], req[2])
-
-            elif req[0] == channel.REQ_UTIME:
-                self.utime(req[1], req[2])
-
-            elif req[0] == channel.REQ_FSYNC:
-                self.fsync(req[1], req[2])
-
-            elif req[0] == channel.REQ_OPEN:
-                self.open(req[1], req[2], req[3])
-
-            elif req[0] == channel.REQ_RELEASE:
-                MogamiLog.debug("** release **")
-                self.release(req[1], req[2])
-
-            elif req[0] == channel.REQ_FGETATTR:
-                self.fgetattr(req[1])
-
-            elif req[0] == channel.REQ_FTRUNCATE:
-                MogamiLog.error("** ftruncate **")
-
-            elif req[0] == channel.REQ_DATAADD:
-                MogamiLog.debug("** dataadd **")
-                ip = self.c_channel.getpeername()
-                self.data_add(ip, req[1])
-
-            elif req[0] == channel.REQ_DATADEL:
-                MogamiLog.debug("** datadel **")
-                ip = self.c_channel.getpeername()
-                self.data_del(ip)
-
-            elif req[0] == channel.REQ_RAMFILEADD:
-                MogamiLog.debug("** ramfile add **")
-                self.register_ramfiles(req[1])
-
-            elif req[0] == channel.REQ_FILEASK:
-                MogamiLog.debug("** fileask **")
-                self.file_ask(req[1])
-            
-            elif req[0] == channel.REQ_FILEREP:
-                MogamiLog.debug("** filerep ** ")
-                self.file_rep(req[1], req[2])
-
-            else:
-                MogamiLog.error("[error] Unexpected Header")
-                self.c_channel.finalize()
-                break
+        for (req, funcname) in req_types:
+            self.regist_handler(req, funcname)
 
     # MogamiSystem APIs
-    def data_add(self, ip, rootpath):
+    def dataadd(self, rootpath):
+        ip = self.c_channel.getpeername()
+        
         self.sysinfo.add_data_server(ip, rootpath)
 
         print "add data server IP:", ip
@@ -297,7 +224,8 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
         MogamiLog.info("Now there are %d data servers." %
                        len(self.sysinfo.data_list))
 
-    def data_del(self, ip):
+    def datadel(self, ):
+        ip = self.c_channel.getpeername()
         ret = self.sysinfo.remove_data_server(ip)
 
         if ret == True:
@@ -334,7 +262,7 @@ class MogamiMetaHandler(daemons.MogamiDaemons):
             st_dict = None
         self.c_channel.getattr_answer(ans, st_dict)
 
-    def readdir(self, path):
+    def readdir(self, path, offset):
         MogamiLog.debug('path=%s' % (path))
         try:
             l = self.meta_rep.readdir(path)

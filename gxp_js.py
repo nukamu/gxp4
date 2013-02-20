@@ -10,7 +10,6 @@ import gxpc,gxpm,ioman,opt
 
 import cPickle,cStringIO
 
-# inserted by miki
 import mogami_scheduler
 
 dbg=0
@@ -2528,8 +2527,6 @@ class job_scheduler(gxpc.cmd_interpreter):
             feature_file_path, mds_host)
         if self.mogami_scheduler.active != True:
             Es("warning: could not optimize job scheduling\n")
-            if self.logfp:
-                self.LOG("** warning: could not optimize job scheduling ** \n")
         self.calc_time = 0.0
 
     def ensure_directory(self, dire):

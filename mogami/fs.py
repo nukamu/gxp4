@@ -22,10 +22,8 @@ import conf
 import channel
 import system
 import daemons
-import tips
 import filemanager
 from system import MogamiLog
-
 
 m_channel = channel.MogamiChanneltoMeta()
 daemons_list = []
@@ -34,8 +32,6 @@ channels = channel.MogamiChannelRepository()
 file_access_dict = {}
 file_access_lock = threading.Lock()
 local_ch = channel.MogamiChanneltoData()
-
-negative_cache = {}
 
 class MogamiFileAccessHistory(object):
     def __init__(self, ):
@@ -510,7 +506,7 @@ def main(meta_addr, args, config=None):
 
     fs = MogamiFS(meta_addr, 
                   version="%prog " + fuse.__version__,
-                  usage=system.usagestr())
+                  usage=fuse.Fuse.fusage)
     fs.flags = 0
     fs.multithreaded = conf.multithreaded
     fs.main()

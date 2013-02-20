@@ -5,7 +5,7 @@ metaport=15806
 dataport=15807
 
 # Define the directory for log
-log_dir="/tmp/mogamilog"
+log_dir="/tmp"
 
 # Define buffer size and block size in mogami
 bufsize=1024

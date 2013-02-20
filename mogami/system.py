@@ -3,15 +3,11 @@
 
 from __future__ import with_statement
 
-from fuse import Fuse
-import fuse
-fuse.fuse_python_api = (0, 2)
-
 import conf
 import logging
 import os.path
 import sys
-
+import ConfigParser
 
 class Singleton(type):
     """Singleton Class implementation from
@@ -59,7 +55,7 @@ class MogamiLog(object):
 
         @param log_type
         @param output_level
-        >>> MogamiLog.init("meta", MogamiLog.DEBUG)
+        >>> MogamiLog.init(MogamiLog.TYPE_META, MogamiLog.DEBUG)
         """
         instance = MogamiLog()
 
@@ -77,6 +73,7 @@ class MogamiLog(object):
         if os.access(logdir, os.W_OK) == False:
             sys.exit("""** Directory for log is permitted to write. **
 Please confirm the directory "%s".""" % (logdir))
+
         logging.basicConfig(filename=instance.logfile, 
                             level=output_level,
                             format='[%(asctime)s] %(message)s',
@@ -103,11 +100,6 @@ Please confirm the directory "%s".""" % (logdir))
     def critical(msg):
         logging.critical(msg)
 
-def usagestr():
-    """Usage string.
-    """
-    return ""+ fuse.Fuse.fusage
-
 class MogamiError(Exception):
     def __init__(self, typeno, ):
         pass
@@ -115,6 +107,15 @@ class MogamiError(Exception):
     def __str__(self, ):
         pass
 
+class MogamiConfigParser(object):
+    def __init__(self, config_path):
+        """
+        """
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(config_path)
+        
+    def __getattr__(self, attr):
+        return eval(self.config.get('default', attr))
 
 if __name__ == "__main__":
     import doctest

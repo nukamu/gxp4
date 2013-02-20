@@ -141,6 +141,7 @@ default_src_files = [ "$GXP_DIR",
                       "$GXP_DIR/gxpmake/ex_xml_reader",
                       "$GXP_DIR/gxpmake/read_helper.py",
                       "$GXP_DIR/mogami",
+                      "$GXP_DIR/mogami/mogami",                      
                       "$GXP_DIR/mogami/meta.py",
                       "$GXP_DIR/mogami/fs.py",
                       "$GXP_DIR/mogami/data.py",
@@ -150,9 +151,6 @@ default_src_files = [ "$GXP_DIR",
                       "$GXP_DIR/mogami/metadata.py",
                       "$GXP_DIR/mogami/filemanager.py",
                       "$GXP_DIR/mogami/system.py",
-                      "$GXP_DIR/mogami/tips.py",
-                      "$GXP_DIR/mogami/bin",
-                      "$GXP_DIR/mogami/bin/exec_with_ap"
                       ]
 
 #
