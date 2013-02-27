@@ -221,7 +221,6 @@ class MogamiDataHandler(daemons.MogamiRequestHandler):
 
         MogamiLog.debug("finish send data of file")
         ans = to_channel.recvrep_getanswer()
-        #print "finished replication (ans: %d)" % (ans)
         if ans == 0:
             self.c_channel.filerep_answer(ans, f_size)
         to_channel.finalize()

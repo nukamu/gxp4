@@ -119,7 +119,7 @@ class MogamiStat(fuse.Stat):
             try:
                 setattr(self, attr, 0)
             except AttributeError, e:
-                print e
+                raise e
 
     def __repr__(self):
         s = ", ".join("%s=%d" % (attr, getattr(self, "_" + attr))
@@ -131,7 +131,7 @@ class MogamiStat(fuse.Stat):
             try:
                 setattr(self, attr, st_dict[attr])
             except AttributeError, e:
-                print e
+                raise e
 
     # TODO: Deprecated
     def chsize(self, size):
@@ -532,13 +532,10 @@ class MogamiFileAccessPattern(object):
         with self.lock:
             if self.mode == AccessPattern.MOD_SEQ:
                 if offset == self.last_read:
-                    #print "[tips] mode sequential"
                     return
                 elif offset < self.last_read:
-                    #print "[tips] mode rand"
                     self.mode = AccessPattern.MOD_RAND
                 else:
-                    #print "[tips] mode stride"
                     self.mode = AccessPattern.MOD_STRIDE
                     self.stride_read_size = self.last_read - self.last_seq_read_start
                     self.stride_seek_size = offset - self.last_read
@@ -552,15 +549,12 @@ class MogamiFileAccessPattern(object):
                         return
                 else:
                     if (self.last_read - self.last_seq_read_start == self.stride_read_size) and (offset - self.last_read == self.stride_seek_size) and (size <= self.stride_read_size):
-                        #print "[tips] mode stride"
                         return
                     else:
-                        #print "[tips] mode rand"
                         self.mode = AccessPattern.MOD_RAND
                     
             else:
                 if offset == self.last_read:
-                    #print "[tips] mode sequential"
                     self.mode = AccessPattern.MOD_SEQ
 
 

@@ -705,7 +705,34 @@ class session_state:
             if verbosity >= 2:
                 Es("gxpc: clean session not saved\n")
 
+    def set_mogami_meta(self, meta, meta_dir, pid):
+        self.mogami_meta_env = {}
+        self.mogami_meta_env['meta'] = meta
+        self.mogami_meta_env['meta_dir'] = meta_dir
+        self.mogami_meta_env['pid'] = pid
+        self.mogami_data_env = []
+        self.mogami_client_env = []
 
+    def set_mogami_data(self, data, data_dir, pid):
+        data_env = {}
+        data_env['data'] = data
+        data_env['data_dir'] = data_dir
+        data_env['pid'] = pid
+        self.mogami_data_env.append(data_env)
+        
+    def set_mogami_client(self, client, mnt_dir):
+        client_env = {}
+        client_env['client'] = client
+        client_env['mnt_dir'] = mnt_dir
+        self.mogami_client_env.append(client_env)
+
+    def get_mogami_env(self, ):
+        pass
+
+class mogami_env:
+    def __init__(self):
+        pass
+        
 class e_cmd_opts(opt.cmd_opts):
     def __init__(self):
         #             (type, default)
@@ -1194,6 +1221,30 @@ class rsh_cmd_opts(opt.cmd_opts):
         #   None : flag
         opt.cmd_opts.__init__(self)
         self.full = (None, 0)           # full flag
+
+class mogami_cmd_opts(opt.cmd_opts):
+    """
+    mogami [--meta meta_hostname]
+
+    """
+    def __init__(self):
+        #             (type, default)
+        # types supported
+        #   s : string
+        #   i : int
+        #   f : float
+        #   l : list of strings
+        #   None : flag
+        opt.cmd_opts.__init__(self)
+        self.meta = ("s", None)
+        self.meta_dir = ("s", "/tmp/meta")
+        self.data_dir = ("s", "/tmp/data")
+
+        # modes
+        self.share = ("s", None)
+        self.umount = ("s", None)
+        self.quit = (None, 0)
+
 
 class interpreter_opts(opt.cmd_opts):
     def __init__(self):
@@ -5271,30 +5322,88 @@ this command line.
     #
     def do_mogami_cmd(self, args):
         if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN
+        opts = mogami_cmd_opts()
+        if opts.parse(args) == -1:
+            return cmd_interpreter.RET_NOT_RUN
+
+        # if mnt_dir option is not specified..
+        if opts.share != None:
+            self.deploy_mogami(opts)
+        elif opts.umount != None:
+            # umount
+            pass
+        elif opts.quit != 0:
+            # kill daemons and umount all mount points
+            meta_pid = self.session.mogami_meta_env['pid']
+            try:
+                os.kill(meta_pid, signal.SIGINT)
+            except OSError:
+                sys.exit("gxpc: couldn't find the process (pid: %d)" % (meta_pid))
+        else:
+            Es("gxpc: Please specify one of the options (share, umount, quit).\n")
+            return cmd_interpreter.RET_NOT_RUN
+
+    def deploy_mogami(self, opts):
         gxp_dir = os.environ["GXP_DIR"]
+        if opts.meta == None:
+            opts.meta = self.session.successful_targets.keys()[0]
 
-        meta_target = self.session.successful_targets.keys()[0]
-        Es("gxpc: %s was selected as metadata server.\n" % (meta_target))
+        Es("gxpc: %s was selected as metadata server.\n" % (opts.meta))
 
-        print self.opts.args        
+        import subprocess
+        
         # launch program for metadata server.
-        pid = os.fork()
-        if pid == 0:
-            os.execvp('mogami', ['', '--meta', '/home/miki/tmp/tmp/meta'])
-        Es("gxpc: metadata server initialization finished (on %s)\n" % (meta_target))
+        p = subprocess.Popen(['mogami', '--meta', opts.meta_dir], stdout=subprocess.PIPE)
+        p.wait()
+        print "returned %d" % (p.returncode)
+        meta_pid = int(p.stdout.read())
+        if p.returncode == 0:
+            self.session.set_mogami_meta(opts.meta, opts.meta_dir, meta_pid)
+            Es("gxpc: metadata server initialization finished (on %s)\n" % (opts.meta))
+        else:
+            Es("gxpc: failed to create a daemon for metadata server\n")
 
         # launch program for data servers.
-        data_args = ['data.py']
+        data_args = ['mogami', '--server', '--meta_addr', opts.meta, opts.data_dir]
         self.e_like_cmd("e", data_args, None, 1, 0)
 
         # launch program for clients. (mogamifs is mounted here)
-        fs_args = ['fs.py', ]
+        fs_args = ['mogami', '--client', '--meta_addr', opts.meta, opts.share]
         self.e_like_cmd("e", fs_args, None, 1, 0)
+        
+        # Congrats!
+        Es("gxpc: OK. Mogami has been mounted on %s.\n" % (opts.share))
 
-    def usage_mogami_cmd(self, args):
+    def usage_mogami_cmd(self, full):
         u = r"""Usage:
-  gxpc mogami [--meta_addr meta_hostname] mount_point
+  gxpc mogami [options]
 """
+        if full:
+            u = u + r"""
+Description:
+  This is a distributed file system based on FUSE. You can share a mount point
+ (a directory) by using Mogami easily. 
+A simple example:
+
+  gxpc mogami --share /tmp/mnt
+
+
+Options:
+  --share PATH
+    share a certain directory among all worker nodes
+  --umount PATH
+  --quit
+    unmount all share directories
+  --meta METADATA_SERVER_ADDRESS
+
+  --meta_dir PATH_METADATA_DIR
+
+  --data_dir PATH_DATA_DIR
+
+  --conf CONFIG_FILE
+
+"""
+
         return u
 
     def js_like_cmd(self, cname, args):
@@ -5405,7 +5514,7 @@ this command line.
         if opts.parse(argv[1:]) == -1: return -1
         if opts.help:
             return self.do_help_cmd([])
-        
+
         if opts.profile is None:
             return self.init_and_dispatch()
         else:

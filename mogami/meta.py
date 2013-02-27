@@ -142,9 +142,8 @@ class MogamiDaemonOnMeta(daemons.MogamiDaemons):
                  dest, dest_path) = self.sock_dict[sock_id]
                 (ans, f_size) = ch.filerep_getanswer()
                 if ans == 0:
-                    self.meta_rep.addrep(path, dest, dest_path, f_size)
                     # add new location to metadata 
-                    print "*** add replication *** %s" % (path)
+                    self.meta_rep.addrep(path, dest, dest_path, f_size)
                 self.sock_list.remove(sock_id)
                 del self.sock_dict[sock_id]
 
@@ -217,9 +216,6 @@ class MogamiMetaHandler(daemons.MogamiRequestHandler):
         ip = self.c_channel.getpeername()
         
         self.sysinfo.add_data_server(ip, rootpath)
-
-        print "add data server IP:", ip
-        print "Now %d data servers are." % len(self.sysinfo.data_list)
         MogamiLog.info("delete data server IP: %s" % ip)
         MogamiLog.info("Now there are %d data servers." %
                        len(self.sysinfo.data_list))
@@ -229,8 +225,6 @@ class MogamiMetaHandler(daemons.MogamiRequestHandler):
         ret = self.sysinfo.remove_data_server(ip)
 
         if ret == True:
-            print "delete data server IP:", ip
-            print "Now %d data servers are." % len(self.sysinfo.data_list)
             MogamiLog.info("delete data server IP: %s" % ip)
             MogamiLog.info("Now there are %d data servers." %
                            len(self.sysinfo.data_list))
@@ -476,7 +470,7 @@ class MogamiMetaHandler(daemons.MogamiRequestHandler):
         try:
             self.meta_rep.release(path, fsize)
         except Exception, e:
-            print "OSError in release (%s)" % (e)
+            MogamiLog.error("OSError in release (%s)" % (e))
         ans = 0
         self.c_channel.release_answer(ans)
 
@@ -502,7 +496,7 @@ class MogamiMetaHandler(daemons.MogamiRequestHandler):
             st = os.fstat(fd)
             senddata = [0, st]
         except os.error, e:
-            print "OSError in fgetattr (%s)" % (e)
+            MogamiLog.debug("OSError in fgetattr (%s)" % (e))
             senddata = [e.errno, 'null']
         self.c_channel.fgetattr_answer(senddata)
 

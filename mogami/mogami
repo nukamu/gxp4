@@ -10,6 +10,21 @@ import data
 from optparse import OptionParser
 
 
+def daemonize():
+    if os.fork() != 0:
+        sys.exit(0)
+    try:
+        os.setsid()
+    except:
+        sys.exit(1)
+    pid = os.fork()
+    if pid != 0:
+        print "%d" % (pid)
+        sys.exit(0)
+    os.close(sys.stdin.fileno())
+    os.close(sys.stdout.fileno())
+    os.close(sys.stderr.fileno())
+
 def main():
     usage = "Usage: %prog [mode] [options]"
     parser = OptionParser(usage)
@@ -49,14 +64,10 @@ def main():
 
     ## launch program
     if options.mode == 0:  # case of meta
-        pid = os.fork()
-        if pid != 0:
-            sys.exit(0)
+        daemonize()
         meta.main(args[0], config=options.config_path)
     elif options.mode == 1:  # case of server
-        pid = os.fork()
-        if pid != 0:
-            sys.exit(0)
+        daemonize()
         data.main(options.meta_addr, args[0], config=options.config_path)
     elif options.mode == 2:  # case of client
         fs_args = ['', args[0]]
