@@ -8,11 +8,9 @@ import fuse
 fuse.fuse_python_api = (0, 2)
 
 # python standard modules
-import stat
 import errno
 import os
 import os.path
-import Queue
 import sys
 import time
 import threading
@@ -20,7 +18,6 @@ import threading
 # mogami's original modules
 import conf
 import channel
-import system
 import daemons
 import filemanager
 from system import MogamiLog
@@ -91,15 +88,15 @@ class MogamiFS(Fuse):
     """
     def __init__(self, meta_server, *args, **kw):
         Fuse.__init__(self, *args, **kw)
+        MogamiLog.info("** Mogami FS init **")
         self.meta_server = meta_server
         self.parse(errex=1)
         m_channel.connect(self.meta_server)
 
     def fsinit(self, ):
-        """Called before fs.main() called.
+        """Called before fs.main() is called.
         """
         # initializer log
-        MogamiLog.info("** Mogami FS init **")
         MogamiLog.debug("Success in creating connection to metadata server")
         MogamiLog.debug("Init complete!!")
         
@@ -108,7 +105,7 @@ class MogamiFS(Fuse):
         collector_thread.start()
 
         # create a thread for telling access pattern logs
-        tellap_thread = MogamitoTellAccessPattern('/tmp/mogami_ap')
+        tellap_thread = MogamitoTellAccessPattern(conf.ap_comm)
         daemons_list.append(tellap_thread)
         tellap_thread.start()
 

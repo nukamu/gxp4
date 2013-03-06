@@ -6,11 +6,7 @@ from __future__ import with_statement
 import os
 import os.path
 import sys
-import errno
-import string
-import random
 import threading
-import re
 import time
 import socket
 import cStringIO
@@ -132,13 +128,13 @@ class MogamiDataHandler(daemons.MogamiRequestHandler):
             try:
                 sendbuf = ""
                 start_t = time.time()
-                MogamiLog.debug("fd = %d, blnum = %d" % (fd, bl_num))
-                os.lseek(fd, bl_num * conf.blsize, os.SEEK_SET)
+                MogamiLog.debug("fd = %d, blnum = %d" % (fd, blnum))
+                os.lseek(fd, blnum * conf.blsize, os.SEEK_SET)
 
                 buf = cStringIO.StringIO()
                 readlen = 0
                 while readlen < conf.blsize - 1:
-                    os.lseek(fd, bl_num * conf.blsize + readlen, os.SEEK_SET)
+                    os.lseek(fd, blnum * conf.blsize + readlen, os.SEEK_SET)
                     tmpbuf = os.read(fd, conf.blsize - readlen)
                     if tmpbuf == '':   # end of file
                         break
@@ -313,7 +309,7 @@ class MogamiData(object):
         while True:
             # connected from client
             (csock, address) = self.lsock.accept()
-            MogamiLog.debug("accept connnect from " + str(address[0]))
+            MogamiLog.debug("accept connnect from %s"  % str(address[0]))
 
 
             client_channel = channel.MogamiChannelforData()
