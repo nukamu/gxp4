@@ -1,0 +1,127 @@
+
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+%(reload_directive)s
+
+<title>Mogami Web Interface</title>
+<style>
+<!--
+h1 {
+  background-color:#ccc;
+}
+table {
+ margin:0px;
+ border-style:solid;
+ border-width:1px;
+}
+td {
+  margin:0px;
+  border-style:solid;
+  border-width:1px;
+}
+td.job_queued {
+  background-color:#fff;
+}
+td.job_running {
+  background-color:#ffc;
+}
+td.job_success {
+  background-color:#cff;
+}
+td.job_failed {
+  background-color:#ff8;
+}
+td.job_killed {
+  background-color:#ff4;
+}
+td.job_worker_died {
+  background-color:#c8c;
+}
+td.job_worker_left {
+  background-color:#c8f;
+}
+td.job_no_throw {
+  background-color:#f4f;
+}
+td.job_interrupted {
+  background-color:#f4c;
+}
+td.man_free {
+  background-color:#fff;
+}
+td.man_0_active {
+  background-color:#ffc;
+}
+td.man_1_leaving {
+  background-color:#ff4;
+}
+td.man_2_gone {
+  background-color:#c4c;
+}
+-->
+</style>
+
+<!-- you may have this file to overwrite default style -->
+<link rel="stylesheet" href="state.css" type="text/css"/>
+
+</head>
+
+<a name="Table of Contents">
+<h1>Contents</h1>
+<ul>
+<li><a href="#Basic info">Basic Info</a>
+<li><a href="#Config">Config</a>
+<li><a href="#Metadata Server">Metadata Server</a>
+<li><a href="#Data Servers">Data Servers</a>
+<li><a href="#Clients">Clients</a>
+<li><a href="#Files">Files</a>
+<li><a href="#Communication">Communication</a>
+</ul>
+
+<a name="Basic Info">
+<h1>Basic Info</h1>
+<a href="#">page top</a><br><br>
+<table class="basic_info">
+%(basic_info_table)s
+</table>
+
+<a name="Config">
+<h1>Config</h1>
+<a href="#">page top</a><br><br>
+<table class="config">
+%(conf_table)s
+</table>
+
+<a name="Metadata Server">
+<h1>Metadata Server</h1>
+<a href="#">page top</a><br><br>
+<table class="metadata_server">
+%(metadata_server_table)s
+</table>
+
+<a name="Data Servers">
+<h1>Data Servers</h1>
+<a href="#">page top</a><br><br>
+<table class="data_servers">
+%(data_servers_table)s
+</table>
+
+<a name="Clients">
+<h1>Clients</h1>
+<a href="#">page top</a><br><br>
+<table class="clients">
+%(clients_table)s
+</table>
+
+<a name="Files">
+<h1>Files</h1>
+<a href="#">page top</a><br><br>
+
+<a name="Communication">
+<h1>Communication</h1>
+<a href="#">page top</a><br><br>
+<a href="mogami_comm.js">interactive monitoring</a><br><br>
+
+</body>
+</html>
