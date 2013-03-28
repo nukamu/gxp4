@@ -102,7 +102,7 @@ class MogamiPrefetchThread(MogamiDaemons):
                 [self.p_channel.sock.fileno()], [], [], 0)
             pre_num_change = (len(readable[0]) == 0)
             if recv_prefetch_data() == False:  # succeeded or not
-                
+                pass
 
     def recv_prefetch_data(self, ):
         time_list = []
@@ -113,7 +113,7 @@ class MogamiPrefetchThread(MogamiDaemons):
         if header == None:
             MogamiLog.debug("break prefetch thread's loop")
             self.mogami_file.r_data = None
-            break
+            return
 
         errno = header[0]
         blnum = header[1]
@@ -139,7 +139,7 @@ class MogamiPrefetchThread(MogamiDaemons):
             if len(buf) != size:
                 MogamiLog.debug("break prefetch thread's loop")
                 self.mogami_file.r_data = None
-                break
+                return
             if pre_num_change == True:
                 recv_size = size / float(1024) / float(1024)
                 self.mogami_file.prenum = int(recv_size / eval_time *

@@ -41,10 +41,12 @@ def main():
 
     # options (not required)
     parser.add_option("-f", action="store_true", 
-                      help = "foreground operation", dest="f", default=False)
+                      help="foreground operation", dest="f", default=False)
     parser.add_option("-d", action="store_true", 
                       help="enable debug output (implies -f)",
                       dest="debug", default=False)
+    parser.add_option("--daemon", action="store_true",
+                      help="daemon mode", dest="daemon", default=False)
     parser.add_option("--config", dest="config_path", 
                       default=None)
     
@@ -64,10 +66,12 @@ def main():
 
     ## launch program
     if options.mode == 0:  # case of meta
-        daemonize()
+        if options.daemon == True:
+            daemonize()
         meta.main(args[0], config=options.config_path)
     elif options.mode == 1:  # case of server
-        daemonize()
+        if options.daemon == True:
+            daemonize()
         data.main(options.meta_addr, args[0], config=options.config_path)
     elif options.mode == 2:  # case of client
         fs_args = ['', args[0]]
@@ -77,6 +81,10 @@ def main():
             fs_args.append('-f')
         else:
             fs.main(options.meta_addr, fs_args, config=options.config_path)
+    elif options.mode == 3:  # case of html generator
+        if options.daemon == True:
+            daemonize()
+        
 
 if __name__ == '__main__':
     main()

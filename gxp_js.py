@@ -35,10 +35,12 @@ class jobsched_cmd_opts(opt.cmd_opts):
         #   None : flag
         opt.cmd_opts.__init__(self)
         self.conf  = ("s", "gxp_js.conf") # config file
+        self.profile = (None, 0) # for profiling run
         self.attrs = ("s*", [])           # --attr x=y
         self.help  = (None, 0)
         self.c     = "conf"
         self.a     = "attrs"
+        self.p     = "profile"
         self.h     = "help"
 
 class jobsched_tokenizer:
@@ -179,6 +181,7 @@ class jobsched_config:
                   "work_db_type",
                   "worker_prof_cmd",
                   "work_list_limit", "state_dir", "template_html",
+                  "ap_dir", "ap_file",
                   "gen_html_overhead", "refresh_interval",
                   "no_dispatch_after", "interrupt_at",
                   "cpu_factor", "mem_factor", "translate_dir", "job_output",
@@ -209,6 +212,8 @@ class jobsched_config:
         self.work_list_limit = 100
         self.state_dir = "state"
         self.template_html = "${GXP_DIR}/gxpbin/gxp_js_template.html"
+        self.ap_dir = "ap"
+        self.ap_file = "ap.dat"
         self.gen_html_overhead = 0.05
         self.refresh_interval = 60
         self.no_dispatch_after = float("inf")

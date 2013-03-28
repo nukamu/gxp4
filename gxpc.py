@@ -57,7 +57,7 @@ pickler = import_safe_pickler()
 import cStringIO,errno,fcntl,glob,random,re
 import select,signal,socket,stat # shlex
 import string,time,threading,types,copy
-import opt,gxpm,this_file
+import opt,gxpm,this_file,mogami_util
 # ,gxpd
 
 #
@@ -254,7 +254,8 @@ class session_state:
             self.login_methods[name] = cmd
 
         # for mogami env
-        self.mogami_status = mogami_env()
+        self.mogami_status = mogami_util.mogami_env()
+        self.mogami_html_dir = None
 
     def show(self, level):
         Ws("%s\n" % self.filename)
@@ -710,57 +711,7 @@ class session_state:
                 Es("gxpc: clean session not saved\n")
 
 
-class mogami_env:
-    def __init__(self):
-        # metadata server
-        self.meta_peer = None
-        self.meta_dir = ""
-        self.meta_pid = 0
 
-        # data servers
-        self.data_peers = []
-        self.data_dir_d = {}  # k: peer, v: dirname
-        self.data_pid_d = {}  # k: peer, v: pid
-
-        # clients
-        self.fs_peers = []        
-        self.fs_dir_d = {}  # k: peer, v: dirname
-
-    def show(self):
-        """create texts for representing mogami's current status.
-        """
-        ret_str = "meta=%s,data=%s,client=%s" % (str(meta_peer), 
-                                                 str(data_peers),
-                                                 str(fs_peers))  # tentatively
-        return ret_str
-
-    def set_mogami_meta(self, meta, meta_dir, pid):
-        """
-        """
-        self.meta_peer = meta
-        self.meta_dir = meta_dir
-        self.meta_pid = pid
-
-    def set_mogami_data(self, data, data_dir, pid):
-        """
-        """
-        if data in self.data_dir_d:
-            ret_str = "cannot set multiple data servers on single host"
-            sys.exit(ret_str + "(host: %s)" % (data, ))
-        self.data_peers.append(data)
-        self.data_dir_d[data] = data_dir
-        self.data_pid_d[data] = pid
-
-    def set_mogami_client(self, client, mnt_dir):
-        """
-        """
-        if client in self.fs_dir_d:
-            ret_str = "cannot set multiple clients on single host"
-            sys.exit(ret_str + "(tentatively) (host: %s)" % (data, ))
-        self.fs_peers.append(client)
-        self.fs_dir_d[data] = mnt_dir
-
-        
 class e_cmd_opts(opt.cmd_opts):
     def __init__(self):
         #             (type, default)
@@ -1267,12 +1218,16 @@ class mogami_cmd_opts(opt.cmd_opts):
         self.meta = ("s", None)
         self.meta_dir = ("s", "/tmp/meta")
         self.data_dir = ("s", "/tmp/data")
+        self.web_dir = ("s", "/tmp/mogami_web")
+        self.conf = ("s", None)
 
         # modes
         self.share = ("s", None)
-        self.umount = ("s", None)
         self.quit = (None, 0)
+        self.refresh = (None, 0)
 
+        # optional
+        self.daemon = (None, 0)
 
 class interpreter_opts(opt.cmd_opts):
     def __init__(self):
@@ -5349,7 +5304,7 @@ this command line.
     # mogami (distributed file system)
     #
     def do_mogami_cmd(self, args):
-        if self.init2() == -1: return cmd_interpreter.RET_NOT_RUN
+        if self.init3() == -1: return cmd_interpreter.RET_NOT_RUN
         opts = mogami_cmd_opts()
         if opts.parse(args) == -1:
             return cmd_interpreter.RET_NOT_RUN
@@ -5362,49 +5317,111 @@ this command line.
 
             Es("gxpc: %s was selected as metadata server.\n" % (opts.meta))
             
-            import subprocess
-        
-            # launch program for metadata server.
-            p = subprocess.Popen(['mogami', '--meta', opts.meta_dir], stdout=subprocess.PIPE)
-            p.wait()
-            print "returned %d" % (p.returncode)
-            meta_pid = int(p.stdout.read())
-            if p.returncode == 0:
-                self.session.set_mogami_meta(opts.meta, opts.meta_dir, meta_pid)
+            meta_args = ['mogami', '--meta', opts.meta_dir]
+            ex,tgt = self.session.select_exec_tree(self.opts)
+            if ex == -1: return cmd_interpreter.RET_NOT_RUN
+            exec_hosts = self.hosts_from_tree(tgt)
+
+            act = gxpm.action_createproc(None, [], {}, " ".join(meta_args), 
+                                         [], [])
+
+            meta_tid = self.send_action(tgt, None, act, 0, 1)
+            print meta_tid  # tid???
+            if True:
                 Es("gxpc: metadata server initialization finished (on %s)\n" % (opts.meta))
             else:
                 Es("gxpc: failed to create a daemon for metadata server\n")
+            self.session.mogami_status.set_mogami_meta(opts.meta, opts.meta_dir, meta_tid)
 
             # launch program for data servers.
             data_args = ['mogami', '--server', '--meta_addr', opts.meta, opts.data_dir]
-            self.e_like_cmd("e", data_args, None, 1, 0)
+            act = gxpm.action_createproc(None, [], {}, " ".join(data_args), 
+                                         [], [])
+
+            data_tid = self.send_action(tgt, None, act, 0, 1)
+            print data_tid  # tid???
+            
+            self.session.mogami_status.set_mogami_data(exec_hosts, opts.meta_dir, data_tid)
 
             # launch program for clients. (mogamifs is mounted here)
             fs_args = ['mogami', '--client', '--meta_addr', opts.meta, opts.share]
-            self.e_like_cmd("e", fs_args, None, 1, 0)
-        
+            act = gxpm.action_createproc(None, [], {}, " ".join(fs_args), 
+                                         [], [])
+
+            tid = self.send_action(tgt, None, act, 0, 0)
+            print tid  # tid???
+            self.session.mogami_status.set_mogami_fs(exec_hosts, opts.share)
+            self.session.mogami_status.set_conf(opts)
+
             # Congrats!
             Es("gxpc: OK. Mogami has been mounted on %s.\n" % (opts.share))
 
-        elif opts.umount != None:
-            ## unmount client mount points
-            pass  # not implemented
+            html_gen = mogami_util.mogami_html_generator(self, opts)
+            html_gen.generate()
+            if opts.daemon != 0:
+                self.mk_html_generator(html_gen)
+            Es("gxpc: Web interface is now available. (%s)\n" % (opts.web_dir))
 
         elif opts.quit != 0:
-            # kill daemons and umount all mount points
-            meta_peer = self.session.mogami_status.meta_peer
-            meta_pid = self.session.mogami_status.meta_pid
             try:
-                ## kill meta data daemon process here
-                pass
+                tid = self.session.mogami_status.meta_tid
+                if tid == -1:
+                    sys.exit("gxpc: error! No metadata server daemon.")
+                self.send_action(None, tid, gxpm.action_sig(None, "KILL"), 0, 0)
+                time_limit2 = self.timeout_to_limit(3.0)
+                res = self.process_events_loop(None, tid, None, time_limit2)
+                if res == cmd_interpreter.RECV_TIMEOUT:
+                    Es("gxpc: warning: timeout after interrupt (some processes may be left)\n")
             except Exception:
-                sys.exit("gxpc: couldn't kill the metadata server process (host: %s, pid: %d)" % (meta_peer, meta_pid))
+                sys.exit("gxpc: couldn't kill the metadata server process")
 
-            # should kill data server daemons and unmount client mount points similarly
+            try:
+                tid = self.session.mogami_status.data_tid
+                if tid == -1:
+                    sys.exit("gxpc: error! No data servers daemon.")
+                self.send_action(None, tid, gxpm.action_sig(None, "KILL"), 0, 0)
+                time_limit2 = self.timeout_to_limit(3.0)
+                res = self.process_events_loop(None, tid, None, time_limit2)
+                if res == cmd_interpreter.RECV_TIMEOUT:
+                    Es("gxpc: warning: timeout after interrupt (some processes may be left)\n")
+
+            except Exception:
+                sys.exit("gxpc: couldn't kill data servers process")
+
+            # should unmount client mount points similarly
+
+        elif opts.refresh != 0:
+            html_gen = mogami_util.mogami_html_generator(self, opts)
+            html_gen.generate()
 
         else:
-            Es("gxpc: Please use one of the options (share, umount, quit).\n")
+            Es("gxpc: Please use one of the options (--share or --quit).\n")
             return cmd_interpreter.RET_NOT_RUN
+
+    def mk_html_generator(self, html_gen):
+        ## daemonize
+        if os.fork() != 0:
+            sys.exit(0)
+        try:
+            os.setsid()
+        except:
+            sys.exit(1)
+        pid = os.fork()
+        if pid != 0:
+            sys.exit(0)
+        os.close(sys.stdin.fileno())
+        os.close(sys.stdout.fileno())
+        os.close(sys.stderr.fileno())
+
+        while True:
+            html_gen.generate()
+            time.sleep(5)
+
+    def hosts_from_tree(self, tree):
+        l = [tree.hostname, ]
+        for child in tree.children:
+            l.extend(self.hosts_from_tree(child))
+        return l
 
     def usage_mogami_cmd(self, full):
         u = r"""Usage:

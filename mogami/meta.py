@@ -448,7 +448,10 @@ class MogamiMetaHandler(daemons.MogamiRequestHandler):
                 ans = 0
             except Exception, e:
                 MogamiLog.error("!! have fatal error @2!! (%s)" % (e))
-                ans = e.errno
+                try:
+                    ans = e.errno
+                except Exception, e:
+                    ans = errno.ENOSYS
                 dest = None
                 fd = None
                 data_path = None

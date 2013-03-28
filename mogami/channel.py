@@ -58,9 +58,14 @@ REQ_FILEADD = 35
 REQ_ADDAP = 36
 REQ_SCHEDULE = 37
 
-## channel's type
+## requests for getting basic information
+REQ_INFO = 38
+REQ_DIRTREE = 39
+
+## channel type
 TYPE_TCP = 0
 TYPE_UNIX = 1
+
 
 class MogamiChannelRepository(object):
     """Class for repository of all channels.
@@ -81,6 +86,7 @@ class MogamiChannelRepository(object):
     def set_channel(self, dest, d_channel, p_channel):
         with self.lock:
             self.channel_dict[dest] = (d_channel, p_channel)
+
 
 class MogamiChannel(object):
     """Class for communication with others using TCP
